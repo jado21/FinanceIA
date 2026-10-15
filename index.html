@@ -1,0 +1,1676 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Prototipo</title>
+<style>
+  :root {
+    --fondo: #e9ecef;
+    --texto: #1f2933;
+    --marco: #1b1f24;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --fondo: #14171a; --texto: #e8ebee; --marco: #3a4048; }
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; min-height: 100%; }
+  body {
+    background: var(--fondo);
+    color: var(--texto);
+    font-family: "Trebuchet MS", "Segoe UI", Helvetica, Arial, sans-serif;
+    display: flex; flex-direction: column; align-items: center;
+    min-height: 100vh; padding: 2rem 1rem;
+  }
+  h1 { margin: 0 0 2rem; font-size: 2.4rem; font-weight: 700; letter-spacing: .02em; }
+  main { flex: 1; display: flex; align-items: center; justify-content: center; }
+
+  /* ---------- Celular: 7 cm x 15 cm ---------- */
+  .celular {
+    width: 7cm; height: 15cm; background: var(--marco);
+    border-radius: .9cm; padding: .28cm; position: relative;
+    box-shadow: 0 12px 30px rgba(0,0,0,.3);
+  }
+  .celular::before, .celular::after {
+    content: ""; position: absolute; right: -.1cm; width: .1cm;
+    background: var(--marco); border-radius: 0 2px 2px 0;
+  }
+  .celular::before { top: 3cm; height: 1.4cm; }
+  .celular::after  { top: 5cm; height: 1.4cm; }
+
+  .pantalla {
+    width: 100%; height: 100%; background: #F8F9FB;
+    border-radius: .65cm; position: relative; overflow: hidden;
+    touch-action: none; user-select: none; -webkit-user-select: none;
+  }
+  .pantalla::before { /* cámara */
+    content: ""; position: absolute; top: .25cm; left: 50%;
+    transform: translateX(-50%); width: .5cm; height: .5cm;
+    border-radius: 50%; background: var(--marco); z-index: 20;
+  }
+  .pantalla::after { /* barra de gestos */
+    content: ""; position: absolute; bottom: .2cm; left: 50%;
+    transform: translateX(-50%); width: 2cm; height: .1cm;
+    border-radius: .05cm; background: #2B2D42; opacity: .5; z-index: 20;
+  }
+
+  /* ---------- App (se diseña a 402 px de ancho, como en Figma, y se escala) ---------- */
+  .app {
+    position: absolute; top: 0; left: 0; width: 402px;
+    transform-origin: top left; overflow: hidden;
+    font-family: "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    color: #1E2340; background: #F8F9FB;
+  }
+  .vista {
+    position: absolute; inset: 0;
+    transition: transform .28s cubic-bezier(.3,.7,.3,1);
+  }
+  .vista.sube { transform: translateY(-44px); }
+  .vista.baja { transform: translateY(44px); }
+
+  .estela {
+    position: absolute; left: 0; right: 0; height: 130px;
+    opacity: 0; transition: opacity .25s; pointer-events: none; z-index: 5;
+  }
+  .estela.verde { top: 0;    background: linear-gradient(to bottom, rgba(34,197,94,.55), rgba(34,197,94,0)); }
+  .estela.roja  { bottom: 0; background: linear-gradient(to top, rgba(239,68,68,.55), rgba(239,68,68,0)); }
+  .estela.on { opacity: 1; }
+
+  .barra-estado { position: absolute; top: 14px; left: 24px; right: 24px; height: 20px;
+    display: flex; justify-content: space-between; align-items: center; font-weight: 600; font-size: 15px; }
+  .barra-estado .iconos { display: flex; gap: 6px; align-items: center; }
+
+  .titulo { position: absolute; top: 58px; left: 24px; font-size: 22px; font-weight: 700; letter-spacing: .01em; }
+  .cerrar { position: absolute; top: 57px; right: 24px; width: 32px; height: 32px; border-radius: 50%;
+    background: #DCE3EF; display: grid; place-items: center; border: 0; padding: 0; cursor: pointer; }
+
+  .gastos-totales { position: absolute; top: 124px; left: 0; right: 0; text-align: center; font-size: 14px; color: #111; }
+
+  .anillo { position: absolute; top: 140px; left: 93px; width: 210px; height: 210px; }
+  .anillo svg { position: absolute; inset: 0; overflow: visible; }
+  .boton-gasto {
+    position: absolute; top: 32px; left: 32px; width: 148px; height: 148px; border-radius: 50%;
+    background: #6366F1; color: #fff; border: 0; cursor: pointer;
+    font: 300 20px/1.2 "Segoe UI", Roboto, Arial, sans-serif; text-align: center;
+    box-shadow: 0 6px 14px rgba(99,102,241,.25);
+  }
+  .boton-gasto:active { transform: scale(.97); }
+
+  .monto { position: absolute; top: 361px; left: 0; right: 0; text-align: center; font-size: 14px; color: #8A94B3; transition: color .2s; }
+  .monto.ingreso { color: #16A34A; font-weight: 600; font-size: 16px; }
+  .monto.gasto   { color: #DC2626; font-weight: 600; font-size: 16px; }
+
+  .gastos-titulo { position: absolute; top: 398px; left: 24px; font-size: 14px; color: #111; }
+  .gastos-sub { position: absolute; top: 416px; left: 24px; font-size: 12px; font-weight: 600; color: #7C8190; }
+
+  .lista { position: absolute; top: 447px; left: 24px; right: 33px; height: 143px;
+    border: 1px solid #E3E6EE; border-radius: 18px; background: #FCFCFD;
+    padding: 6px 14px; display: flex; flex-direction: column; justify-content: space-between; }
+  .fila { display: grid; grid-template-columns: 1fr 1fr auto; font-size: 12px; font-weight: 500; color: #A4A9B4; }
+  .fila span:nth-child(2) { padding-left: 32px; }
+  .fila span:nth-child(3) { text-align: right; }
+  .fila.real { color: #2B2D42; }
+
+  .zona-baja { position: absolute; left: 0; right: 0; bottom: 129px; height: 177px; background: #fff; }
+  .crear-limite { position: absolute; left: 24px; right: 24px; bottom: 134px; height: 52px; border: 0; border-radius: 16px;
+    background: #6366F1; color: #fff; font: 600 16px "Segoe UI", Roboto, Arial, sans-serif; cursor: pointer; }
+  .crear-limite:active { transform: scale(.98); }
+
+  .nav { position: absolute; left: 0; right: 0; bottom: 0; height: 92px; background: #DDDCFA;
+    display: flex; padding-top: 14px; }
+  .nav button { flex: 1; background: none; border: 0; display: flex; flex-direction: column; align-items: center;
+    gap: 4px; font: 500 12px "Segoe UI", Roboto, Arial, sans-serif; color: #2B2D42; cursor: pointer; }
+  .nav .ico { width: 56px; height: 32px; border-radius: 16px; display: grid; place-items: center; }
+  .nav .activo .ico { background: #E9E3F7; }
+  .nav .estrella { width: 22px; height: 22px; border-radius: 50%; background: #3B3A55; color: #fff;
+    display: grid; place-items: center; font-size: 12px; line-height: 1; }
+
+  /* ---------- Pantalla 2: Configuración de límites ---------- */
+  .pagina { position: absolute; inset: 0; background: #F8F9FB; z-index: 6;
+    transform: translateX(100%); transition: transform .32s cubic-bezier(.3,.7,.3,1); }
+  .pagina.on { transform: translateX(0); }
+  .p2-etiqueta { position: absolute; top: 59px; left: 24px; font-size: 12px; font-weight: 500; color: #6366F1; }
+  .p2-titulo { position: absolute; top: 82px; left: 24px; font-size: 22px; font-weight: 700; color: #1E2340; }
+  .p2-sub { position: absolute; top: 120px; left: 24px; font-size: 14px; color: #7C8190; }
+  .atras { position: absolute; top: 52px; right: 24px; width: 32px; height: 32px; border-radius: 50%;
+    background: #DCE3EF; display: grid; place-items: center; border: 0; padding: 0; cursor: pointer; }
+  .tarjetas { position: absolute; top: 160px; left: 24px; right: 24px; display: flex; flex-direction: column; gap: 13px; }
+  .tarjeta { background: #fff; border: 1px solid #E3E6EE; border-radius: 20px; padding: 14px 14px 12px;
+    display: flex; flex-direction: column; gap: 11px; }
+  .t-cab { display: flex; align-items: center; gap: 14px; }
+  .t-ico { width: 32px; height: 32px; border-radius: 10px; background: #F3F4F8; display: grid; place-items: center; font-size: 18px; }
+  .t-nombre { font-size: 17px; font-weight: 600; color: #1E2340; }
+  .t-fila { display: flex; gap: 12px; align-items: center; }
+  .t-monto { width: 134px; height: 42px; border: 1px solid #E3E6EE; background: #F6F8FB; border-radius: 12px;
+    display: flex; align-items: center; padding: 0 12px; gap: 8px; }
+  .t-monto .moneda { font-size: 15px; color: #7C8190; }
+  .t-monto input { width: 52px; border: 0; background: none; outline: 0; font: 600 17px "Segoe UI", Roboto, Arial, sans-serif; color: #1E2340; padding: 0; }
+  .t-monto:focus-within { border-color: #6366F1; background: #fff; }
+  .t-monto .lapiz { margin-left: auto; cursor: pointer; display: grid; }
+  .seg { flex: 1; height: 40px; border-radius: 14px; background: #E1E6EE; padding: 3px; display: flex; gap: 2px; }
+  .seg button { flex: 1; border: 0; border-radius: 11px; background: none; color: #6B7385; cursor: pointer;
+    font: 500 12.5px "Segoe UI", Roboto, Arial, sans-serif; }
+  .seg button.on { background: #fff; color: #111; font-weight: 700; box-shadow: 0 0 0 1px #fff, 0 1px 3px rgba(30,35,64,.12); }
+  .p2-guardar { position: absolute; left: 24px; right: 24px; bottom: 114px; height: 52px; border: 0; border-radius: 16px;
+    background: #6366F1; color: #fff; font: 600 16px "Segoe UI", Roboto, Arial, sans-serif; cursor: pointer; }
+  .p2-guardar:active { transform: scale(.98); }
+  .p2-sugeridos { position: absolute; left: 0; right: 0; bottom: 82px; text-align: center; background: none; border: 0;
+    color: #6366F1; font: 500 13px "Segoe UI", Roboto, Arial, sans-serif; cursor: pointer; }
+  .p2-siguiente { position: absolute; left: 0; right: 0; bottom: 52px; text-align: center; font-size: 12px; font-weight: 600; color: #7C8190; }
+
+  /* ---------- Pantalla 3: Nuevo gasto ---------- */
+  .chips { position: absolute; top: 112px; left: 0; right: 0; display: flex; gap: 8px; padding: 0 24px;
+    overflow-x: auto; scrollbar-width: none; cursor: grab; }
+  .chips::-webkit-scrollbar { display: none; }
+  .chip { flex: none; height: 36px; padding: 0 14px; border-radius: 18px; border: 1px solid #E3E6EE; background: #fff;
+    color: #1E2340; font: 500 14px "Segoe UI", Roboto, Arial, sans-serif; cursor: pointer; white-space: nowrap; }
+  .chip.on { background: #6366F1; border-color: #6366F1; color: #fff; }
+  .p3-monto { position: absolute; top: 184px; left: 0; right: 0; text-align: center; font-weight: 800; color: #6366F1;
+    line-height: 1.1; white-space: nowrap; }
+  .p3-etiqueta { position: absolute; top: 273px; left: 0; right: 0; text-align: center; font-size: 14px; color: #8A94B3; }
+  .p3-desc { position: absolute; top: 311px; left: 24px; right: 24px; height: 44px; border: 1px solid #E3E6EE;
+    background: #fff; border-radius: 14px; display: flex; align-items: center; gap: 10px; padding: 0 14px; }
+  .p3-desc:focus-within { border-color: #6366F1; }
+  .p3-desc input { flex: 1; min-width: 0; border: 0; outline: 0; background: none; font: 400 14px "Segoe UI", Roboto, Arial, sans-serif; color: #1E2340; }
+  .p3-desc input::placeholder { color: #7C8190; }
+  .teclado { position: absolute; top: 379px; left: 0; right: 0; height: 260px; background: #fff; border-top: 1px solid #E8EAF0;
+    padding: 15px 24px 0; display: grid; grid-template-columns: repeat(3, 1fr); grid-auto-rows: 48px; gap: 12px; }
+  .teclado button { border: 0; border-radius: 14px; background: #F6F8FB; color: #1E2340; cursor: pointer;
+    font: 600 18px "Segoe UI", Roboto, Arial, sans-serif; display: grid; place-items: center; }
+  .teclado button:active { background: #E9ECF5; }
+  .p3-pie { position: absolute; left: 0; right: 0; bottom: 0; height: 93px; background: #fff; border-top: 1px solid #E8EAF0; }
+  .p3-guardar { position: absolute; left: 24px; right: 24px; bottom: 41px; height: 52px; border: 0; border-radius: 16px;
+    background: #6366F1; color: #fff; font: 600 16px "Segoe UI", Roboto, Arial, sans-serif; cursor: pointer; }
+  .p3-guardar:active { transform: scale(.98); }
+
+  /* ---------- Pantalla 4: Mis límites ---------- */
+  #pagina2 { z-index: 8; }
+  .p4-sw { position: absolute; top: 56px; right: 24px; flex: none; width: 128px; height: 34px; border-radius: 12px; }
+  .p4-sw button { border-radius: 9px; font-size: 12.5px; }
+  .p4-sub { position: absolute; top: 104px; left: 24px; right: 24px; font-size: 14px; line-height: 1.45; color: #7C8190; }
+  .p4-lista { position: absolute; top: 165px; left: 24px; right: 24px; display: flex; flex-direction: column; gap: 12px; }
+  .p4-card { background: #fff; border: 1px solid #E3E6EE; border-radius: 20px; padding: 14px 16px 16px;
+    display: flex; flex-direction: column; gap: 13px; }
+  .p4-card.alerta { border-color: #6366F1; box-shadow: 0 0 0 1px #6366F1, 0 8px 20px rgba(99,102,241,.16); }
+  .p4-fila { display: flex; align-items: center; gap: 12px; }
+  .p4-nombre { font-size: 17px; font-weight: 600; color: #1E2340; }
+  .p4-montos { margin-left: auto; font-size: 14px; color: #8A94A6; white-space: nowrap; }
+  .p4-montos b { font-weight: 700; margin-right: 4px; }
+  .p4-lapiz { border: 0; background: none; padding: 0; display: grid; cursor: pointer; }
+  .p4-barra { height: 8px; border-radius: 4px; background: #F0F2F6; overflow: hidden; }
+  .p4-barra i { display: block; height: 100%; border-radius: 4px; transition: width .4s; }
+  .p4-aviso { display: flex; align-items: center; gap: 8px; height: 38px; padding: 0 12px; border: 0; border-radius: 12px;
+    background: #EEF0FF; color: #6366F1; font: 600 13px "Segoe UI", Roboto, Arial, sans-serif; cursor: pointer; }
+  .p4-aviso svg:last-child { margin-left: auto; }
+  .p4-vacio { padding: 24px 8px; text-align: center; font-size: 14px; color: #8A94A6; }
+
+  /* ---------- Pantalla 5: Lección (Idea rápida) ---------- */
+  .p5-atras { position: absolute; top: 58px; left: 24px; width: 32px; height: 32px; margin-left: -4px; border: 0; background: none;
+    padding: 0; display: grid; place-items: center; cursor: pointer; }
+  .p5-cab { position: absolute; top: 65px; left: 0; right: 0; text-align: center; font-size: 14px; font-weight: 600; color: #6B7385; }
+  .p5-foco { position: absolute; top: 148px; left: 146px; width: 110px; height: 110px; border-radius: 50%; background: #EEF0FF;
+    display: grid; place-items: center; }
+  .p5-titulo { position: absolute; top: 282px; left: 40px; right: 40px; text-align: center; font-size: 24px; font-weight: 700;
+    line-height: 1.25; color: #1E2340; }
+  .p5-sub { position: absolute; top: 352px; left: 30px; right: 30px; text-align: center; font-size: 16px; line-height: 1.4; color: #7C8190; }
+  .p5-consejo { position: absolute; top: 383px; left: 32px; right: 32px; padding: 14px 20px 22px; border-radius: 18px;
+    background: #EEF0FF; text-align: center; }
+  .p5-consejo b { display: block; font-size: 14px; font-weight: 600; color: #6366F1; margin-bottom: 8px; }
+  .p5-consejo span { font-size: 15px; font-weight: 500; line-height: 1.35; color: #1E2340; }
+  .p5-lectura { position: absolute; top: 531px; left: 50%; transform: translateX(-50%); display: flex; align-items: center; gap: 6px;
+    height: 30px; padding: 0 12px; border: 1px solid #E3E6EE; border-radius: 15px; background: #fff;
+    font-size: 12.5px; color: #6B7385; white-space: nowrap; }
+  .p5-meta { position: absolute; left: 24px; right: 24px; bottom: 102px; height: 52px; border: 0; border-radius: 16px;
+    background: #4F46E5; color: #fff; font: 600 14px "Segoe UI", Roboto, Arial, sans-serif; cursor: pointer; padding: 0 16px; }
+  .p5-meta:active { transform: scale(.98); }
+  .p5-luego { position: absolute; left: 0; right: 0; bottom: 56px; text-align: center; border: 0; background: none;
+    font: 600 15px "Segoe UI", Roboto, Arial, sans-serif; color: #6B7385; cursor: pointer; }
+
+  /* ---------- Pantalla 6: Historial de lecciones ---------- */
+  .p6-sub { position: absolute; top: 96px; left: 24px; right: 24px; font-size: 14px; line-height: 1.45; color: #7C8190; }
+  .p6-lista { position: absolute; top: 156px; left: 24px; right: 24px; bottom: 100px; overflow-y: auto; scrollbar-width: none;
+    display: flex; flex-direction: column; gap: 32px; }
+  .p6-lista::-webkit-scrollbar { display: none; }
+  .p6-card { flex: none; background: #EEF0FF; border-radius: 18px; padding: 14px 18px 16px; }
+  .p6-card b { display: block; font-size: 14px; font-weight: 600; color: #6366F1; margin-bottom: 6px; }
+  .p6-card span { display: block; text-align: center; font-size: 15px; font-weight: 500; line-height: 1.35; color: #1E2340; }
+  .p6-vacio { padding: 40px 12px; text-align: center; font-size: 14px; line-height: 1.5; color: #8A94A6; }
+
+  /* ---------- Pantalla 7: Metas (chanchitos) ---------- */
+  .m-sub { position: absolute; top: 90px; left: 24px; font-size: 15px; color: #7C8190; }
+  .m-total { position: absolute; top: 123px; left: 24px; right: 24px; height: 93px; border-radius: 18px; background: #EEF0FF; padding: 14px 16px; }
+  .m-total-fila { display: flex; justify-content: space-between; align-items: center; font-size: 13px; color: #7C8190; }
+  .m-total-fila b { font-size: 12px; font-weight: 600; color: #6366F1; }
+  .m-total-monto { margin-top: 6px; font-size: 34px; font-weight: 800; color: #5B52E6; line-height: 1.1; }
+  .m-sec { position: absolute; top: 234px; left: 24px; right: 24px; display: flex; justify-content: space-between; align-items: center; }
+  .m-sec span { font-size: 15px; font-weight: 600; color: #1E2340; }
+  .m-sec button { display: flex; align-items: center; gap: 4px; border: 0; background: none; padding: 0; cursor: pointer;
+    font: 600 14px "Segoe UI", Roboto, Arial, sans-serif; color: #6366F1; }
+  .m-lista { position: absolute; top: 270px; left: 24px; right: 24px; bottom: 248px; overflow-y: auto; scrollbar-width: none;
+    display: flex; flex-direction: column; gap: 12px; padding: 2px 0; }
+  .m-lista::-webkit-scrollbar { display: none; }
+  .meta-card { flex: none; display: flex; gap: 14px; align-items: center; background: #fff; border: 1px solid #E3E6EE;
+    border-radius: 18px; padding: 14px 16px; transition: border-color .15s, box-shadow .15s; }
+  .meta-card.objetivo { border-color: #6366F1; box-shadow: 0 0 0 1px #6366F1, 0 8px 20px rgba(99,102,241,.16); }
+  .m-cerdo { position: relative; flex: none; width: 72px; display: grid; justify-items: center; }
+  .m-cerdo em { display: none; position: absolute; top: 58px; font-style: normal; font-size: 11px; font-weight: 600; color: #6366F1; white-space: nowrap; }
+  .meta-card.objetivo .m-cerdo em { display: block; }
+  .m-info { flex: 1; min-width: 0; }
+  .m-nombre { font-size: 17px; font-weight: 600; color: #1E2340; }
+  .m-cifras { margin-top: 3px; font-size: 14px; color: #7C8190; }
+  .m-cifras b { color: #5B52E6; font-weight: 700; }
+  .m-barra { margin-top: 8px; height: 7px; border-radius: 4px; background: #E6E9FA; overflow: hidden; }
+  .m-barra i { display: block; height: 100%; border-radius: 4px; background: #6366F1; transition: width .4s; }
+  .m-pie { margin-top: 5px; display: flex; justify-content: space-between; font-size: 12px; color: #8A94A6; }
+  .m-pie b { color: #5B52E6; font-weight: 700; }
+
+  .m-panel { position: absolute; left: 24px; right: 24px; bottom: 100px; height: 138px; border-radius: 20px; background: #EEF0FF; }
+  .m-moneda { position: absolute; left: 16px; top: 14px; width: 64px; height: 64px; border-radius: 50%; background: #4F46E5; color: #fff;
+    display: flex; flex-direction: column; align-items: center; justify-content: center; line-height: 1; cursor: grab; z-index: 10;
+    box-shadow: inset 0 0 0 4px #6A62EE, 0 0 0 3px #4F46E5, 0 6px 12px rgba(79,70,229,.35); touch-action: none; transition: transform .28s; }
+  .m-moneda.arrastra { cursor: grabbing; }
+  .m-moneda small { font-size: 12px; font-weight: 500; }
+  .m-moneda span { font-size: 24px; font-weight: 700; }
+  .m-panel h3 { position: absolute; top: 14px; left: 96px; margin: 0; font-size: 15px; font-weight: 700; color: #1E2340; }
+  .m-panel p { position: absolute; top: 38px; left: 96px; right: 14px; margin: 0; font-size: 13px; line-height: 1.35; color: #7C8190; }
+  .m-fila { position: absolute; left: 16px; right: 16px; top: 96px; height: 32px; }
+  .m-rapidos, .m-custom { display: flex; gap: 8px; height: 100%; }
+  .m-custom { display: none; }
+  .m-fila.custom-on .m-rapidos { display: none; }
+  .m-fila.custom-on .m-custom { display: flex; }
+  .m-fila button { border: 0; border-radius: 10px; background: #fff; color: #1E2340; cursor: pointer;
+    font: 600 13px "Segoe UI", Roboto, Arial, sans-serif; }
+  .m-rapidos .q { flex: 1; }
+  .m-rapidos .q.on { background: #5B52E6; color: #fff; }
+  .m-rapidos .lapiz { width: 34px; display: grid; place-items: center; }
+  .m-custom label { flex: 1; display: flex; align-items: center; gap: 6px; background: #fff; border-radius: 10px; padding: 0 10px;
+    font-size: 13px; color: #7C8190; }
+  .m-custom input, .m-sheet input { border: 0; outline: 0; background: none; min-width: 0; flex: 1; font: 600 14px "Segoe UI", Roboto, Arial, sans-serif; color: #1E2340; }
+  .m-custom button { padding: 0 14px; background: #5B52E6; color: #fff; }
+  .m-traza { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 9; }
+
+  .m-sheet { position: absolute; inset: 0; background: rgba(30,35,64,.35); z-index: 12; display: none; align-items: flex-end; }
+  .m-sheet.on { display: flex; }
+  .m-sheet > div { width: 100%; background: #fff; border-radius: 24px 24px 0 0; padding: 22px 24px 40px; display: flex; flex-direction: column; gap: 12px; }
+  .m-sheet h3 { margin: 0 0 4px; font-size: 18px; font-weight: 700; color: #1E2340; }
+  .m-sheet label { display: flex; align-items: center; gap: 6px; height: 44px; border: 1px solid #E3E6EE; background: #F6F8FB; border-radius: 12px; padding: 0 14px; font-size: 14px; color: #7C8190; }
+  .m-sheet label:focus-within { border-color: #6366F1; background: #fff; }
+  .m-sheet .crear { height: 48px; border: 0; border-radius: 14px; background: #6366F1; color: #fff; font: 600 15px "Segoe UI", Roboto, Arial, sans-serif; cursor: pointer; margin-top: 4px; }
+  .m-sheet .cancelar { border: 0; background: none; color: #6B7385; font: 600 14px "Segoe UI", Roboto, Arial, sans-serif; cursor: pointer; padding: 4px; }
+
+  .m-sheet > div { gap: 10px; padding-bottom: 36px; }
+  .s-cap { margin-top: 2px; font-size: 13px; color: #7C8190; }
+  .s-monto { height: 56px; border-radius: 14px; background: #F6F8FB; border: 1px solid #6366F1; display: flex; align-items: center;
+    justify-content: center; font-size: 30px; font-weight: 800; color: #5B52E6; }
+  .m-teclado { display: grid; grid-template-columns: repeat(3, 1fr); grid-auto-rows: 44px; gap: 8px; }
+  .m-teclado button { border: 0; border-radius: 12px; background: #F3F5F9; color: #1E2340; cursor: pointer;
+    font: 600 18px "Segoe UI", Roboto, Arial, sans-serif; display: grid; place-items: center; }
+  .m-teclado button:active { background: #E6E9F4; }
+
+  /* ---------- Pantalla 8: Movimientos ---------- */
+  .mv-sub { position: absolute; top: 84px; left: 24px; font-size: 13px; color: #7C8190; }
+  .mv-atras { position: absolute; top: 55px; width: 40px; height: 40px; border: 0; display: grid; place-items: center; cursor: pointer; padding: 0; }
+  .mv-atras { right: 24px; border-radius: 50%; background: #DCE3EF; }
+  .mv-saldo { position: absolute; top: 110px; left: 24px; right: 24px; height: 127px; border-radius: 20px; background: #EEF0FF; padding: 14px 16px; }
+  .mv-saldo-fila { display: flex; justify-content: space-between; font-size: 13px; color: #7C8190; }
+  .mv-saldo-fila b { display: flex; align-items: center; gap: 4px; font-weight: 600; color: #6366F1; }
+  .mv-saldo-monto { margin-top: 4px; font-size: 34px; font-weight: 800; color: #5B52E6; line-height: 1.15; }
+  .mv-io { display: flex; margin-top: 6px; }
+  .mv-io > div { width: 50%; font-size: 13px; color: #7C8190; }
+  .mv-io b { display: block; margin-top: 1px; font-size: 17px; font-weight: 700; }
+  .ing { color: #1B8A5A; } .egr { color: #D64545; }
+  .mv-sw { position: absolute; top: 268px; left: 24px; right: 24px; flex: none; height: 44px; border-radius: 14px; padding: 4px; }
+  .mv-sw button.on { color: #6366F1; }
+  .mv-buscar { position: absolute; top: 318px; left: 24px; right: 74px; height: 40px; border: 1px solid #E3E6EE; background: #fff; border-radius: 14px;
+    display: flex; align-items: center; gap: 8px; padding: 0 12px; }
+  .mv-buscar:focus-within { border-color: #6366F1; }
+  .mv-buscar input { flex: 1; min-width: 0; border: 0; outline: 0; background: none; font: 400 14px "Segoe UI", Roboto, Arial, sans-serif; color: #1E2340; }
+  .mv-buscar input::placeholder { color: #7C8190; }
+  .mv-filtro { position: absolute; top: 318px; right: 24px; width: 40px; height: 40px; border: 1px solid #E3E6EE; background: #fff; border-radius: 12px;
+    display: grid; place-items: center; cursor: pointer; padding: 0; }
+  .mv-card { position: absolute; top: 368px; left: 24px; right: 24px; bottom: 106px; display: flex; flex-direction: column;
+    border: 1px solid #E3E6EE; border-radius: 18px; background: #fff; overflow: hidden; }
+  .mv-cab, .mv-pie { flex: none; display: flex; justify-content: space-between; align-items: center; padding: 10px 16px; }
+  .mv-cab { background: #F6F7FB; font-size: 13px; color: #7C8190; }
+  .mv-cab b { font-weight: 600; color: #2B2D42; }
+  .mv-pie { border-top: 1px solid #EEF0F5; background: #FBFBFD; font-size: 12px; color: #7C8190; }
+  .mv-filas { position: relative; flex: 1; overflow-y: auto; scrollbar-width: none; border-top: 1px solid #EEF0F5; }
+  .mv-filas::-webkit-scrollbar { display: none; }
+  .mv-filas::before { content: ""; position: absolute; left: 12px; top: 0; bottom: 0; width: 2px; background: #E1E4F5; }
+  .mv-fila { display: flex; justify-content: space-between; align-items: center; padding: 10px 16px 10px 26px; border-top: 1px solid #EEF0F5; }
+  .mv-fila:first-child { border-top: 0; }
+  .mv-fila .t { font-size: 15px; font-weight: 700; color: #1E2340; }
+  .mv-fila .s { margin-top: 2px; font-size: 13px; color: #7C8190; }
+  .mv-fila .r { text-align: right; flex: none; padding-left: 8px; }
+  .mv-fila .r b { font-size: 15px; font-weight: 700; }
+  .mv-fila .r small { display: block; font-size: 12px; }
+  .mv-vacio { padding: 36px 20px; text-align: center; font-size: 14px; line-height: 1.5; color: #8A94A6; }
+
+  /* Atajos de Inicio: Movimientos y Tutorial */
+  .atajos { position: absolute; top: 608px; left: 0; right: 0; display: flex; justify-content: center; gap: 20px; }
+  .atajo { width: 76px; height: 76px; border: 0; border-radius: 18px; background: #EEF0FF; cursor: pointer;
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px;
+    font: 600 11px "Segoe UI", Roboto, Arial, sans-serif; color: #5B52E6; }
+  .atajo:active { transform: scale(.96); }
+
+  /* ---------- Pantalla 9: Nuevo ingreso ---------- */
+  .p9-label { position: absolute; top: 110px; left: 24px; font-size: 14px; color: #7C8190; }
+  .p9-chips { position: absolute; top: 139px; left: 24px; right: 78px; display: flex; flex-wrap: wrap; gap: 10px 8px; }
+  .p9-chips .chip { height: 40px; }
+  #pagina9 .p3-monto { top: 262px; }
+  #pagina9 .p3-etiqueta { top: 312px; }
+  #pagina9 .p3-desc { top: 355px; height: 45px; }
+  #pagina9 .teclado { top: 447px; }
+
+  /* Los campos de texto siempre se pueden escribir y seleccionar */
+  .app input { -webkit-user-select: text; user-select: text; }
+
+  /* Gesto de inicio del celular: volver al menú de aplicaciones */
+  .inicio-gesto { position: absolute; bottom: 0; left: 50%; transform: translateX(-50%); width: 2.6cm; height: .5cm; z-index: 25; cursor: pointer; }
+
+  /* ---------- Menú de aplicaciones del celular ---------- */
+  .lanzador { position: absolute; inset: 0; z-index: 30; color: #fff;
+    background: linear-gradient(165deg, #2F2B9E 0%, #5B4BE0 45%, #B66CF0 100%); transition: opacity .28s, transform .28s; }
+  .lanzador.oculto { opacity: 0; transform: scale(1.12); pointer-events: none; }
+  .lanzador .barra-estado { color: #fff; }
+  .lanzador .barra-estado .iconos { filter: brightness(0) invert(1); }
+  .lz-reloj { position: absolute; top: 74px; left: 0; right: 0; text-align: center; }
+  .lz-reloj b { display: block; font-size: 62px; font-weight: 300; line-height: 1; }
+  .lz-reloj span { display: block; margin-top: 6px; font-size: 14px; opacity: .85; }
+  .lz-grid { position: absolute; top: 200px; left: 18px; right: 18px; display: grid; grid-template-columns: repeat(4, 1fr); row-gap: 22px; }
+  .lz-app { display: flex; flex-direction: column; align-items: center; gap: 6px; border: 0; background: none; color: #fff; cursor: pointer;
+    font: 500 11px "Segoe UI", Roboto, Arial, sans-serif; }
+  .lz-app:active .lz-ico { transform: scale(.92); }
+  .lz-ico { width: 62px; height: 62px; border-radius: 17px; display: grid; place-items: center; font-size: 30px;
+    box-shadow: 0 4px 10px rgba(0,0,0,.18); transition: transform .12s; }
+  .lz-dock { position: absolute; left: 16px; right: 16px; bottom: 44px; height: 84px; border-radius: 28px; background: rgba(255,255,255,.22);
+    display: flex; justify-content: space-around; align-items: center; }
+
+  /* ---------- Pantalla 10: Login ---------- */
+  #pagina10 { transform: none; opacity: 0; pointer-events: none; transition: opacity .25s; z-index: 7; }
+  #pagina10.on { opacity: 1; pointer-events: auto; }
+  .lg-logo { position: absolute; top: 84px; left: 50%; margin-left: -29px; width: 58px; height: 58px; border-radius: 18px; background: #E8E9FF; display: grid; place-items: center; }
+  .lg-marca { position: absolute; top: 152px; left: 0; right: 0; text-align: center; font-size: 24px; font-weight: 700; color: #1E2340; }
+  .lg-marca span { color: #6366F1; }
+  .lg-titulo { position: absolute; top: 210px; left: 0; right: 0; text-align: center; font-size: 21px; font-weight: 700; color: #1E2340; }
+  .lg-sub { position: absolute; top: 243px; left: 24px; right: 24px; text-align: center; font-size: 13.5px; color: #7C8190; }
+  .lg-sw { position: absolute; top: 287px; left: 24px; right: 24px; flex: none; height: 46px; border-radius: 14px; padding: 4px; }
+  .lg-sw button { font-size: 14px; }
+  .lg-form { position: absolute; top: 348px; left: 24px; right: 24px; display: flex; flex-direction: column; }
+  .lg-campo { display: block; margin-bottom: 10px; }
+  .lg-campo > span { display: block; margin-bottom: 6px; font-size: 14px; font-weight: 500; color: #1E2340; }
+  .lg-in { display: flex; align-items: center; gap: 8px; height: 48px; padding: 0 14px; border: 1px solid #E3E6EE; border-radius: 14px; background: #fff; }
+  .lg-in:focus-within { border-color: #6366F1; }
+  .lg-in input { flex: 1; min-width: 0; border: 0; outline: 0; background: none; font: 400 14px "Segoe UI", Roboto, Arial, sans-serif; color: #1E2340; }
+  .lg-in input::placeholder { color: #9AA1B2; }
+  .lg-in button { border: 0; background: none; padding: 0; display: grid; cursor: pointer; }
+  .lg-olvido { align-self: flex-end; border: 0; background: none; padding: 0; margin: -2px 0 14px; cursor: pointer;
+    font: 500 13px "Segoe UI", Roboto, Arial, sans-serif; color: #6366F1; }
+  .lg-principal { height: 50px; border: 0; border-radius: 16px; background: #6366F1; color: #fff; cursor: pointer;
+    font: 600 16px "Segoe UI", Roboto, Arial, sans-serif; margin-top: 4px; }
+  .lg-principal:active { transform: scale(.98); }
+  .lg-o { display: flex; align-items: center; gap: 12px; margin: 14px 0; font-size: 12px; color: #7C8190; }
+  .lg-o::before, .lg-o::after { content: ""; flex: 1; height: 1px; background: #E3E6EE; }
+  .lg-google { height: 48px; border: 1px solid #E3E6EE; border-radius: 14px; background: #fff; color: #2B2D42; cursor: pointer;
+    font: 600 15px "Segoe UI", Roboto, Arial, sans-serif; display: flex; align-items: center; justify-content: center; gap: 10px; }
+  .lg-google b { font-size: 17px; color: #5F6368; }
+  .lg-local { margin-top: 10px; height: 52px; border: 0; border-radius: 14px; background: #EEF0FF; color: #5B52E6; cursor: pointer;
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; font: 600 14px "Segoe UI", Roboto, Arial, sans-serif; }
+  .lg-local small { font-size: 11px; font-weight: 500; color: #7C8190; }
+  .lg-local span { display: flex; align-items: center; gap: 6px; }
+  .lg-pie { position: absolute; left: 0; right: 0; bottom: 48px; text-align: center; font-size: 12px; font-weight: 600; color: #7C8190; }
+
+  /* ---------- Pantallas 11, 12 y 13: Tutorial ---------- */
+  .tu-marca { position: absolute; top: 66px; left: 26px; font-size: 16px; font-weight: 700; color: #1E2340; z-index: 3; }
+  .tu-marca span { color: #6366F1; }
+  .tu-omitir { position: absolute; top: 67px; right: 26px; border: 0; background: none; padding: 0; z-index: 3; cursor: pointer;
+    font: 600 13px "Segoe UI", Roboto, Arial, sans-serif; color: #6B7385; }
+  .tu-vista { position: absolute; inset: 0; overflow: hidden; touch-action: none; cursor: grab; }
+  .tu-vista.arrastra { cursor: grabbing; }
+  .tu-pista { position: absolute; top: 0; left: 0; bottom: 0; width: 1206px; transition: transform .32s cubic-bezier(.3,.7,.3,1); }
+  .tu-slide { position: absolute; top: 0; bottom: 0; width: 402px; }
+  .tu-slide > * { position: absolute; }
+  .tu-t { top: 418px; left: 24px; right: 24px; text-align: center; font-size: 22px; font-weight: 700; line-height: 1.3; color: #1E2340; }
+  .tu-s { top: 498px; left: 36px; right: 36px; text-align: center; font-size: 14px; line-height: 1.5; color: #7C8190; }
+  .tu-circulo { left: 80px; top: 145px; width: 240px; height: 240px; border-radius: 50%; background: #EEF0FF; }
+  .tu-persona { left: 98px; top: 186px; }
+  .tu-punto { left: 93px; top: 196px; width: 9px; height: 9px; border-radius: 50%; background: #D9DCEC; }
+  .tu-nota { left: 197px; top: 176px; width: 130px; padding: 10px 14px 12px; background: #fff; border-radius: 14px; box-shadow: 0 6px 18px rgba(30,35,64,.12); }
+  .tu-nota small { display: block; font-size: 11px; color: #6B7385; }
+  .tu-nota b { display: block; margin: 2px 0 6px; font-size: 18px; font-weight: 800; color: #5B52E6; }
+  .tu-nota i { display: block; height: 3px; border-radius: 2px; background: #E3E6EE; }
+  .tu-card { left: 83px; width: 234px; background: #fff; border-radius: 18px; border: 1px solid #EDEFF7; box-shadow: 0 8px 22px rgba(30,35,64,.10); padding: 16px 18px; }
+  .tu-card .cab { display: flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 700; color: #1E2340; }
+  .tu-card .cifra { margin-top: 12px; font-size: 24px; font-weight: 800; color: #1E2340; }
+  .tu-card .cifra span { font-size: 12.5px; font-weight: 500; color: #8A94A6; }
+  .tu-card .segs { display: flex; gap: 6px; margin: 12px 0; }
+  .tu-card .segs i { flex: 1; height: 8px; border-radius: 4px; }
+  .tu-card .pie { font-size: 12px; color: #6B7385; }
+  .tu-check { left: 296px; top: 196px; width: 30px; height: 30px; border-radius: 50%; background: #EEF0FF; border: 2px solid #fff; display: grid; place-items: center; }
+  .tu-domo { left: 83px; top: 156px; width: 234px; height: 210px; border-radius: 117px 117px 0 0; background: #EEF0FF; }
+  .tu-foco { left: 183px; top: 190px; }
+  .tu-consejo { left: 83px; top: 262px; width: 234px; padding: 14px 16px 16px; background: #fff; border-radius: 16px; border: 1px solid #EDEFF7; box-shadow: 0 8px 22px rgba(30,35,64,.10); }
+  .tu-consejo b { display: block; margin-bottom: 6px; font-size: 12.5px; font-weight: 700; color: #6366F1; }
+  .tu-consejo span { font-size: 13.5px; line-height: 1.45; color: #1E2340; }
+  .tu-puntos { position: absolute; left: 0; right: 0; bottom: 170px; display: flex; justify-content: center; gap: 8px; z-index: 3; }
+  .tu-puntos i { width: 7px; height: 7px; border-radius: 4px; background: #DDE0EE; transition: width .25s, background .25s; }
+  .tu-puntos i.on { width: 22px; background: #6366F1; }
+  .tu-btn { position: absolute; left: 24px; right: 24px; bottom: 96px; height: 52px; border: 0; border-radius: 16px; background: #6366F1; color: #fff;
+    font: 600 16px "Segoe UI", Roboto, Arial, sans-serif; cursor: pointer; z-index: 3; }
+  .tu-btn:active { transform: scale(.98); }
+  .tu-pie { position: absolute; left: 0; right: 0; bottom: 64px; text-align: center; font-size: 12px; font-weight: 500; color: #7C8190; z-index: 3; }
+
+  .aviso { position: absolute; left: 50%; bottom: 110px; transform: translate(-50%, 10px); background: #2B2D42; color: #fff;
+    font-size: 13px; padding: 9px 16px; border-radius: 20px; opacity: 0; transition: .25s; z-index: 40;
+    white-space: nowrap; pointer-events: none; }
+  .aviso.on { opacity: 1; transform: translate(-50%, 0); }
+</style>
+</head>
+<body>
+  <h1>Prototipo</h1>
+  <main>
+    <div class="celular">
+      <div class="pantalla" id="pantalla">
+        <div class="inicio-gesto" id="btnCasa" title="Inicio"></div>
+        <div class="app" id="app">
+
+          <!-- ============ PANTALLA 1: INICIO ============ -->
+          <div class="vista" id="vista">
+            <div class="barra-estado">
+              <span>9:41</span>
+              <span class="iconos">
+                <svg width="18" height="11" viewBox="0 0 18 11" fill="#1E2340"><rect x="0" y="7" width="3" height="4" rx="1"/><rect x="5" y="5" width="3" height="6" rx="1"/><rect x="10" y="2.5" width="3" height="8.5" rx="1"/><rect x="15" y="0" width="3" height="11" rx="1"/></svg>
+                <svg width="16" height="12" viewBox="0 0 16 12" fill="none" stroke="#1E2340" stroke-width="1.8" stroke-linecap="round"><path d="M1.5 4.2a9.5 9.5 0 0 1 13 0"/><path d="M4 7a6 6 0 0 1 8 0"/><circle cx="8" cy="10" r="1" fill="#1E2340" stroke="none"/></svg>
+                <svg width="26" height="12" viewBox="0 0 26 12" fill="none"><rect x=".6" y=".6" width="21.8" height="10.8" rx="3.4" stroke="#1E2340" stroke-width="1.2"/><rect x="2.4" y="2.4" width="18" height="7.2" rx="2" fill="#1E2340"/><rect x="23.6" y="4" width="1.6" height="4" rx=".8" fill="#1E2340"/></svg>
+              </span>
+            </div>
+
+            <div class="titulo">FINANCE</div>
+            <button class="cerrar" aria-label="Cerrar">
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="#4B4F63" stroke-width="1.6" stroke-linecap="round"><circle cx="8" cy="8" r="6.5"/><path d="M5.8 5.8l4.4 4.4M10.2 5.8l-4.4 4.4"/></svg>
+            </button>
+
+
+            <div class="gastos-totales">GASTOS TOTALES</div>
+
+            <div class="anillo">
+              <svg viewBox="0 0 210 210">
+                <path id="pista" fill="none" stroke="#E8E0F7" stroke-width="20" stroke-linecap="round"/>
+                <path id="progreso" fill="none" stroke="#6B4FA6" stroke-width="24" stroke-linecap="round"/>
+              </svg>
+              <button class="boton-gasto" id="btnGasto">INGRESAR<br>GASTO</button>
+            </div>
+
+            <div class="monto" id="monto">Monto ingresado</div>
+
+            <div class="gastos-titulo">GASTOS</div>
+            <div class="gastos-sub">Mostraran los 5 ultimos gastos</div>
+
+            <div class="lista" id="lista"></div>
+
+            <div class="zona-baja"></div>
+            <div class="atajos">
+              <button class="atajo" id="btnMov" aria-label="Historial de movimientos">
+                <svg width="28" height="28" viewBox="0 0 28 28" fill="none" stroke="#5B52E6" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="3.500" width="18" height="21" rx="3"/><path d="M10 10h8M10 14.500h8M10 19h5"/></svg>
+                Movimientos
+              </button>
+              <button class="atajo" id="btnTutorial" aria-label="Tutorial">
+                <svg width="28" height="28" viewBox="0 0 28 28" fill="none" stroke="#5B52E6" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M2.500 11L14 5.500 25.500 11 14 16.500z"/><path d="M7.500 13.500v5.500c0 1.800 3 3.500 6.500 3.500s6.500-1.700 6.500-3.500v-5.500"/><path d="M25.500 11v6.500"/></svg>
+                Tutorial
+              </button>
+            </div>
+            <button class="crear-limite" id="btnLimite">Crear limite</button>
+
+            <nav class="nav">
+              <button class="activo" data-destino="Gastos"><span class="ico"><span class="estrella">★</span></span>Gastos</button>
+              <button data-destino="Mis limites"><span class="ico"><span class="estrella">★</span></span>Mis limites</button>
+              <button data-destino="Metas"><span class="ico"><span class="estrella">★</span></span>Metas</button>
+              <button data-destino="Lecciones"><span class="ico"><span class="estrella">★</span></span>Lecciones</button>
+            </nav>
+          </div>
+
+          <!-- ============ PANTALLA 2: CREAR LÍMITE ============ -->
+          <div class="pagina" id="pagina2">
+            <div class="p2-etiqueta">Configuración inicial</div>
+            <div class="p2-titulo">Definamos tus límites de gasto</div>
+            <div class="p2-sub">Puedes ajustarlos cuando quieras desde tu perfil</div>
+            <button class="atras" id="btnAtras" aria-label="Volver">
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="#4B4F63" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9.5 3.5L5 8l4.5 4.5"/></svg>
+            </button>
+            <div class="tarjetas" id="tarjetas"></div>
+            <button class="p2-guardar" id="btnGuardar">Guardar y continuar</button>
+            <button class="p2-sugeridos" id="btnSugeridos">Usar valores sugeridos y continuar</button>
+            <div class="p2-siguiente">Siguiente: Dashboard</div>
+          </div>
+
+          <!-- ============ PANTALLA 3: NUEVO GASTO ============ -->
+          <div class="pagina" id="pagina3">
+            <div class="titulo">Nuevo gasto</div>
+            <button class="cerrar" id="btnVolver3" aria-label="Volver">
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="#4B4F63" stroke-width="1.6" stroke-linecap="round"><circle cx="8" cy="8" r="6.5"/><path d="M5.8 5.8l4.4 4.4M10.2 5.8l-4.4 4.4"/></svg>
+            </button>
+            <div class="chips" id="chips"></div>
+            <div class="p3-monto" id="p3Monto">S/ 0</div>
+            <div class="p3-etiqueta">Monto ingresado</div>
+            <label class="p3-desc">
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="#8A94A6" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M10.5 3l2.5 2.5L5.5 13H3v-2.5L10.5 3z"/></svg>
+              <input type="text" id="p3Desc" maxlength="40" placeholder="Café en la esquina">
+            </label>
+            <div class="teclado" id="teclado"></div>
+            <div class="p3-pie"></div>
+            <button class="p3-guardar" id="btnGuardarGasto">Guardar gasto</button>
+          </div>
+
+          <!-- ============ PANTALLA 4: MIS LÍMITES ============ -->
+          <div class="pagina" id="pagina4">
+            <div class="titulo">Mis límites</div>
+            <div class="seg p4-sw" id="p4Sw">
+              <button data-p="S" class="on">Semana</button>
+              <button data-p="M">Mes</button>
+            </div>
+            <div class="p4-sub">¡Vas muy bien! Tus límites te ayudan a guardar espacio para lo que realmente importa.</div>
+            <div class="p4-lista" id="p4Lista"></div>
+          </div>
+
+          <!-- ============ PANTALLA 5: LECCIÓN ============ -->
+          <div class="pagina" id="pagina5">
+            <button class="p5-atras" id="btnAtras5" aria-label="Volver">
+              <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="#6B7385" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M16 10H4M9 5l-5 5 5 5"/></svg>
+            </button>
+            <div class="p5-cab">Idea rápida</div>
+            <div class="p5-foco">
+              <svg width="40" height="48" viewBox="0 0 40 48" fill="none" stroke="#6366F1" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 4a13 13 0 0 0-7.5 23.6c1.5 1.3 2.5 3 2.5 5V34h10v-1.4c0-2 1-3.700 2.500-5A13 13 0 0 0 20 4z"/><path d="M15 40h10"/></svg>
+            </div>
+            <div class="p5-titulo" id="p5Titulo"></div>
+            <div class="p5-sub" id="p5Sub"></div>
+            <div class="p5-consejo"><b>Consejo rápido</b><span id="p5Consejo"></span></div>
+            <div class="p5-lectura">
+              <svg width="13" height="13" viewBox="0 0 14 14" fill="none" stroke="#6B7385" stroke-width="1.3" stroke-linecap="round"><circle cx="7" cy="8" r="4.800"/><path d="M7 8V5.500M5.500 1.500h3"/></svg>
+              Lectura de 2 minutos
+            </div>
+            <button class="p5-meta" id="p5Meta"></button>
+            <button class="p5-luego" id="btnLuego">Ver más tarde</button>
+          </div>
+
+          <!-- ============ PANTALLA 6: HISTORIAL DE LECCIONES ============ -->
+          <div class="pagina" id="pagina6">
+            <div class="titulo">Historial de lecciones</div>
+            <div class="p6-sub">Aqui encontraras un historial con todas las lecciones generadas</div>
+            <div class="p6-lista" id="p6Lista"></div>
+          </div>
+
+          <!-- ============ PANTALLA 7: METAS ============ -->
+          <div class="pagina" id="pagina7">
+            <div class="titulo">Mis metas</div>
+            <div class="m-sub">Un chanchito para cada sueño.</div>
+            <div class="m-total">
+              <div class="m-total-fila"><span>Total en tus chanchitos</span><b id="mCuenta"></b></div>
+              <div class="m-total-monto" id="mTotal"></div>
+            </div>
+            <div class="m-sec">
+              <span>Tus chanchitos</span>
+              <button id="btnNuevo"><svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="#6366F1" stroke-width="1.8" stroke-linecap="round"><path d="M9 3v12M3 9h12"/></svg>Nuevo chanchito</button>
+            </div>
+            <div class="m-lista" id="mLista"></div>
+
+            <div class="m-panel">
+              <h3>Recarga tu chanchito</h3>
+              <p>Arrastra la moneda hacia el chanchito que quieras llenar.</p>
+              <div class="m-fila" id="mFila">
+                <div class="m-rapidos">
+                  <button class="q on" data-v="20">S/ 20</button>
+                  <button class="q" data-v="50">S/ 50</button>
+                  <button class="q" data-v="100">S/ 100</button>
+                  <button class="lapiz" id="btnLapizMoneda" aria-label="Otro valor"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="#5B52E6" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M10.5 3l2.5 2.5L5.5 13H3v-2.5L10.5 3z"/></svg></button>
+                </div>
+              </div>
+              <div class="m-moneda" id="mMoneda"><small>S/</small><span>20</span></div>
+            </div>
+
+            <svg class="m-traza" id="mTraza"><path id="mTrazaP" fill="none" stroke="#6366F1" stroke-width="1.6" stroke-dasharray="5 5" stroke-linecap="round" opacity=".7"/></svg>
+
+            <div class="m-sheet" id="mSheet"><div>
+              <h3 id="sTitulo"></h3>
+              <label id="sNombre"><input type="text" id="nNombre" maxlength="24" placeholder="Nombre (ej. Celular nuevo)"></label>
+              <div class="s-cap" id="sEtiqueta"></div>
+              <div class="s-monto" id="sMonto">S/ 0</div>
+              <div class="m-teclado" id="mTeclado"></div>
+              <button class="crear" id="btnSheetOk"></button>
+              <button class="cancelar" id="btnSheetCancel">Cancelar</button>
+            </div></div>
+          </div>
+
+          <!-- ============ PANTALLA 8: MOVIMIENTOS ============ -->
+          <div class="pagina" id="pagina8">
+            <div class="titulo" style="top:52px">Movimientos</div>
+            <div class="mv-sub">Tu cuaderno de finanzas</div>
+            <button class="mv-atras" id="btnAtras8" aria-label="Volver">
+              <svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="#4B4F63" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M16 10H4M9 5l-5 5 5 5"/></svg>
+            </button>
+
+            <div class="mv-saldo">
+              <div class="mv-saldo-fila"><span>Saldo disponible</span>
+                <b><span id="mvMes"></span><svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="#6366F1" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 4.500l3 3 3-3"/></svg></b></div>
+              <div class="mv-saldo-monto" id="mvSaldo"></div>
+              <div class="mv-io">
+                <div>Ingresos<b class="ing" id="mvIng"></b></div>
+                <div>Egresos<b class="egr" id="mvEgr"></b></div>
+              </div>
+            </div>
+
+            <div class="seg mv-sw" id="mvSw">
+              <button data-f="T" class="on">Todos</button>
+              <button data-f="I">Ingresos</button>
+              <button data-f="E">Egresos</button>
+            </div>
+
+            <label class="mv-buscar">
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="#6B7385" stroke-width="1.5" stroke-linecap="round"><circle cx="7" cy="7" r="4.800"/><path d="M10.700 10.700L14 14"/></svg>
+              <input type="text" id="mvBuscar" maxlength="30" placeholder="Buscar concepto o categoría">
+            </label>
+            <button class="mv-filtro" id="btnFiltro" aria-label="Filtros">
+              <svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="#6366F1" stroke-width="1.6" stroke-linecap="round"><path d="M3 5.500h7M14 5.500h1M3 12.500h1M8 12.500h7"/><circle cx="12" cy="5.500" r="1.800"/><circle cx="6" cy="12.500" r="1.800"/></svg>
+            </button>
+
+            <div class="mv-card">
+              <div class="mv-cab"><b id="mvCabMes"></b><span id="mvCuenta"></span></div>
+              <div class="mv-filas" id="mvFilas"></div>
+              <div class="mv-pie"><span id="mvInicial"></span><span>S/ 0.00</span></div>
+            </div>
+          </div>
+
+          <!-- ============ PANTALLA 9: NUEVO INGRESO ============ -->
+          <div class="pagina" id="pagina9">
+            <div class="titulo">Nuevo ingreso</div>
+            <button class="cerrar" id="btnVolver9" aria-label="Volver">
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="#4B4F63" stroke-width="1.6" stroke-linecap="round"><circle cx="8" cy="8" r="6.5"/><path d="M5.8 5.8l4.4 4.4M10.2 5.8l-4.4 4.4"/></svg>
+            </button>
+            <div class="p9-label">Fuente de ingreso</div>
+            <div class="p9-chips" id="p9Chips"></div>
+            <div class="p3-monto" id="p9Monto">S/ 0</div>
+            <div class="p3-etiqueta">Monto ingresado</div>
+            <label class="p3-desc">
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="#8A94A6" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M10.5 3l2.5 2.5L5.5 13H3v-2.5L10.5 3z"/></svg>
+              <input type="text" id="p9Desc" maxlength="40" placeholder="Descripción (opcional)">
+            </label>
+            <div class="teclado" id="p9Teclado"></div>
+            <div class="p3-pie"></div>
+            <button class="p3-guardar" id="btnGuardarIngreso">Guardar ingreso</button>
+          </div>
+
+          <!-- ============ PANTALLA 10: LOGIN ============ -->
+          <div class="pagina" id="pagina10">
+            <button class="cerrar" id="btnCerrar10" aria-label="Cerrar">
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="#4B4F63" stroke-width="1.6" stroke-linecap="round"><circle cx="8" cy="8" r="6.5"/><path d="M5.8 5.8l4.4 4.4M10.2 5.8l-4.4 4.4"/></svg>
+            </button>
+            <div class="lg-logo"><svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#6366F1" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="6" width="18" height="13" rx="3"/><path d="M3 9.500V8a2 2 0 0 1 2-2h11"/><circle cx="16.500" cy="12.500" r="1.200" fill="#6366F1"/></svg></div>
+            <div class="lg-marca">Finance<span>IA</span></div>
+            <div class="lg-titulo" id="lgTitulo">¡Qué bueno verte de nuevo!</div>
+            <div class="lg-sub" id="lgSub">Tus gastos, tus metas y un poco más de tranquilidad.</div>
+            <div class="seg lg-sw" id="lgSw">
+              <button data-m="in" class="on">Iniciar sesión</button>
+              <button data-m="reg">Registrarme</button>
+            </div>
+            <div class="lg-form">
+              <label class="lg-campo"><span>Correo electrónico</span>
+                <div class="lg-in"><input type="email" id="lgCorreo" placeholder="tu.correo@universidad.edu"></div></label>
+              <label class="lg-campo"><span>Contraseña</span>
+                <div class="lg-in"><input type="password" id="lgClave" placeholder="Ingresa tu contraseña">
+                  <button type="button" id="btnOjo" aria-label="Mostrar contraseña"><svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="#6B7385" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M1.500 10S4.500 4.500 10 4.500 18.500 10 18.500 10 15.500 15.500 10 15.500 1.500 10 1.500 10z"/><circle cx="10" cy="10" r="2.500"/></svg></button></div></label>
+              <label class="lg-campo" id="lgConfirmar" style="display:none"><span>Confirmar contraseña</span>
+                <div class="lg-in"><input type="password" id="lgClave2" placeholder="Repite tu contraseña"></div></label>
+              <button class="lg-olvido" id="lgOlvido">¿Olvidaste tu contraseña?</button>
+              <button class="lg-principal" id="lgIngresar">Ingresar</button>
+              <div class="lg-o"><span>o</span></div>
+              <button class="lg-google" id="lgGoogle"><b>G</b><span id="lgGoogleTxt">Continuar con Google</span></button>
+              <button class="lg-local" id="lgLocal"><span><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="#5B52E6" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="1.500" width="8" height="13" rx="2"/><path d="M7 12.500h2"/></svg>Ingresar localmente</span><small>Tus datos solo vivirán en este celular</small></button>
+            </div>
+            <div class="lg-pie">Cuenta · Siguiente: definir tus límites</div>
+          </div>
+
+          <!-- ============ MENÚ DE APLICACIONES DEL CELULAR ============ -->
+          <div class="lanzador" id="lanzador">
+            <div class="lz-reloj"><b>9:41</b><span id="lzFecha"></span></div>
+            <div class="lz-grid" id="lzGrid"></div>
+            <div class="lz-dock" id="lzDock"></div>
+          </div>
+
+          <!-- ============ PANTALLAS 11, 12 y 13: TUTORIAL ============ -->
+          <div class="pagina" id="pagina11">
+            <div class="tu-marca">Finance<span>IA</span></div>
+            <button class="tu-omitir" id="tuOmitir">Omitir</button>
+            <div class="tu-vista" id="tuVista">
+              <div class="tu-pista" id="tuPista">
+
+                <div class="tu-slide" style="left:0">
+                  <div class="tu-circulo"></div>
+                  <div class="tu-punto"></div>
+                  <div class="tu-persona"><svg width="170" height="215" viewBox="0 0 170 215">
+                  <path d="M52 40c0-20 14-32 32-32s31 11 31 30c0 6-1 10-3 14H55c-2-4-3-8-3-12z" fill="#2B2D42"/>
+                  <rect x="77" y="66" width="16" height="18" fill="#E8B898"/>
+                  <ellipse cx="85" cy="48" rx="20" ry="25" fill="#F3C9AD"/>
+                  <path d="M28 160c0-48 22-76 57-76s57 28 57 76v10H28z" fill="#6366F1"/>
+                  <path d="M40 168h90l-6 44H46z" fill="#2F3B59"/>
+                  <path d="M120 104c22-6 32-22 38-44" stroke="#6366F1" stroke-width="19" stroke-linecap="round" fill="none"/>
+                  <rect x="141" y="14" width="27" height="52" rx="6" fill="#2B2D42" transform="rotate(8 154 40)"/>
+                  <rect x="145" y="19" width="19" height="42" rx="3" fill="#9AA3C7" transform="rotate(8 154 40)"/>
+                  <circle cx="157" cy="64" r="9.500" fill="#F3C9AD"/>
+                </svg></div>
+                  <div class="tu-nota"><small>Café ☕</small><b>S/. 5.00</b><i></i></div>
+                  <div class="tu-t">Controla tus gastos sin esfuerzo</div>
+                  <div class="tu-s">Registra ese café, tu almuerzo o el pasaje en segundos. Todo cuenta, sin complicarte.</div>
+                </div>
+
+                <div class="tu-slide" style="left:402px">
+                  <div class="tu-circulo" style="top:160px;background:#F1F2FE"></div>
+                  <div class="tu-card" style="top:206px">
+                    <div class="cab"><span>🍔</span>Comida</div>
+                    <div class="cifra">S/. 65 <span>de S/. 130</span></div>
+                    <div class="segs"><i style="background:#10B981"></i><i style="background:#F2C57C"></i><i style="background:#F8C9C9"></i></div>
+                    <div class="pie">Vas a tu ritmo. ¡Sigue así!</div>
+                  </div>
+                  <div class="tu-check"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="#6366F1" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7.500l2.800 2.800L11 4.500"/></svg></div>
+                  <div class="tu-t">Conoce tus límites antes de que sea tarde</div>
+                  <div class="tu-s">Define cuánto quieres gastar y mira cómo vas. Deja espacio para lo que más te importa.</div>
+                </div>
+
+                <div class="tu-slide" style="left:804px">
+                  <div class="tu-domo"></div>
+                  <div class="tu-foco"><svg width="34" height="42" viewBox="0 0 34 42" fill="none" stroke="#6366F1" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a11 11 0 0 0-6.500 19.900c1.300 1.100 2 2.500 2 4.100V28h9v-1c0-1.600.8-3 2-4.100A11 11 0 0 0 17 3z"/><path d="M13 33h8M14 37.500h6"/></svg></div>
+                  <div class="tu-consejo"><b>Pequeños hábitos, grandes cambios</b><span>Lleva tu café de casa y guarda un poco para tu próxima meta.</span></div>
+                  <div class="tu-t">Aprende finanzas mientras vives tu día a día</div>
+                  <div class="tu-s">Descubre consejos cortos a partir de tus gastos. Pequeños hábitos para avanzar hacia tus metas.</div>
+                </div>
+
+              </div>
+            </div>
+            <div class="tu-puntos" id="tuPuntos"><i class="on"></i><i></i><i></i></div>
+            <button class="tu-btn" id="tuBtn">Siguiente</button>
+            <div class="tu-pie" id="tuPie">Bienvenida · 1 de 3</div>
+          </div>
+
+          <div class="estela verde" id="estelaVerde"></div>
+          <div class="estela roja" id="estelaRoja"></div>
+          <div class="aviso" id="aviso"></div>
+        </div>
+      </div>
+    </div>
+  </main>
+
+<script>
+(function () {
+  var pantalla = document.getElementById('pantalla');
+  var app = document.getElementById('app');
+  var vista = document.getElementById('vista');
+
+  /* ---- Escala: la app se diseña a 402 px y se ajusta al ancho de la pantalla del celular ---- */
+  function ajustar() {
+    var s = pantalla.clientWidth / 402;
+    app.style.transform = 'scale(' + s + ')';
+    app.style.height = (pantalla.clientHeight / s) + 'px';
+  }
+  ajustar();
+  window.addEventListener('resize', ajustar);
+
+  /* ---- Anillo ---- */
+  var C = 105, R = 93;
+  function pt(a) {
+    var r = a * Math.PI / 180;
+    return (C + R * Math.cos(r)).toFixed(2) + ' ' + (C + R * Math.sin(r)).toFixed(2);
+  }
+  function arco(ini, fin) {
+    var grande = (fin - ini) > 180 ? 1 : 0;
+    return 'M ' + pt(ini) + ' A ' + R + ' ' + R + ' 0 ' + grande + ' 1 ' + pt(fin);
+  }
+  document.getElementById('pista').setAttribute('d', arco(90, 357));
+  var progreso = document.getElementById('progreso');
+  function pintarProgreso(grados) {
+    progreso.setAttribute('d', grados > 0 ? arco(14, 14 + Math.max(grados, 1)) : '');
+  }
+  pintarProgreso(0); // inicia en cero: sin arco oscuro hasta registrar gastos
+
+  /* ---- Datos de ejemplo ---- */
+  var ejemplos = [
+    { d: 'Almuerzo',   c: 'Comida',     m: 12.50 },
+    { d: 'Pasaje',     c: 'Transporte', m: 3.50 },
+    { d: 'Fotocopias', c: 'Estudios',   m: 8.00 },
+    { d: 'Cafe',       c: 'Comida',     m: 6.00 },
+    { d: 'Streaming',  c: 'Ocio',       m: 29.90 }
+  ];
+  var ingresosEj = [
+    { d: 'Depósito de mamá',      c: 'Apoyo familiar', m: 300 },
+    { d: 'Tutoría de matemática', c: 'Trabajo',        m: 200 },
+    { d: 'Beca de estudios',      c: 'Beca',           m: 300 }
+  ];
+  var gastos = [], totalGastos = 0, totalIngresos = 0, iG = 0, iI = 0;
+
+  var lista = document.getElementById('lista');
+  function pintarLista() {
+    var html = '';
+    for (var i = 0; i < 5; i++) {
+      var g = gastos[i];
+      html += g
+        ? '<div class="fila real"><span>' + g.d + '</span><span>' + g.c + '</span><span>S/. ' + g.m.toFixed(2) + '</span></div>'
+        : '<div class="fila"><span>Descripcion</span><span>Categoria</span><span>Monto</span></div>';
+    }
+    lista.innerHTML = html;
+  }
+  pintarLista();
+
+  var monto = document.getElementById('monto');
+  function mostrarMonto(valor, tipo) {
+    monto.className = 'monto ' + tipo;
+    monto.textContent = (tipo === 'ingreso' ? '+ S/. ' : '- S/. ') + valor.toFixed(2);
+  }
+  function actualizarAnillo() {
+    var base = totalIngresos > 0 ? totalIngresos : totalGastos;
+    var ratio = base > 0 ? Math.min(totalGastos / base, 1) : 0;
+    pintarProgreso(68 * ratio);
+  }
+
+  /* ---- Avisos ---- */
+  var aviso = document.getElementById('aviso'), tAviso;
+  function toast(txt) {
+    aviso.textContent = txt;
+    aviso.classList.add('on');
+    clearTimeout(tAviso);
+    tAviso = setTimeout(function () { aviso.classList.remove('on'); }, 1800);
+  }
+
+  /* ---- Deslizar: abajo = pantalla baja, estela verde, ingreso | arriba = pantalla sube, estela roja, gasto ---- */
+  var verde = document.getElementById('estelaVerde');
+  var roja = document.getElementById('estelaRoja');
+  var ocupado = false;
+
+  function animar(clase, estela, fin) {
+    ocupado = true;
+    vista.classList.add(clase);
+    estela.classList.add('on');
+    setTimeout(function () {
+      vista.classList.remove(clase);
+      estela.classList.remove('on');
+      ocupado = false;
+      fin();
+    }, 650);
+  }
+  function registrarIngreso() {
+    animar('baja', verde, function () { abrirNuevoIngreso(); });
+  }
+  function registrarGasto() {
+    animar('sube', roja, function () { abrirNuevoGasto(); });
+  }
+
+  var x0 = 0, y0 = 0, activo = false;
+  pantalla.addEventListener('pointerdown', function (e) { x0 = e.clientX; y0 = e.clientY; activo = true; });
+  pantalla.addEventListener('pointerup', function (e) {
+    if (!activo || ocupado || enPantalla !== 1) { activo = false; return; }
+    activo = false;
+    var dx = e.clientX - x0, dy = e.clientY - y0;
+    if (Math.abs(dy) > 40 && Math.abs(dy) > Math.abs(dx)) {
+      if (dy > 0) registrarIngreso(); else registrarGasto();
+    }
+  });
+  pantalla.addEventListener('pointercancel', function () { activo = false; });
+
+  /* ---- Botones (pantallas pendientes) ---- */
+  document.getElementById('btnGasto').addEventListener('click', function () { abrirNuevoGasto(); });
+  document.getElementById('btnLimite').addEventListener('click', function () { origen2 = 1; irA(2); });
+
+  /* ---- Pantalla 2: límites ---- */
+  var pagina2 = document.getElementById('pagina2');
+  pagina2.insertBefore(document.querySelector('#vista .barra-estado').cloneNode(true), pagina2.firstChild);
+
+  var sugeridos = [
+    { ico: '🍔', n: 'Comida',        v: '130', p: 'S' },
+    { ico: '☕', n: 'Gastos hormiga', v: '35',  p: 'S' },
+    { ico: '🚌', n: 'Transporte',    v: '50',  p: 'S' },
+    { ico: '🎬', n: 'Ocio',          v: '100', p: 'M' }
+  ];
+  var limites = JSON.parse(JSON.stringify(sugeridos));
+  var tarjetas = document.getElementById('tarjetas');
+  var lapiz = '<svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="#8A94A6" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M10.5 3l2.5 2.5L5.5 13H3v-2.5L10.5 3z"/></svg>';
+
+  function pintarLimites() {
+    tarjetas.innerHTML = limites.map(function (l, i) {
+      return '<div class="tarjeta" data-i="' + i + '">' +
+        '<div class="t-cab"><span class="t-ico">' + l.ico + '</span><span class="t-nombre">' + l.n + '</span></div>' +
+        '<div class="t-fila">' +
+          '<label class="t-monto"><span class="moneda">S/.</span><input type="text" inputmode="decimal" maxlength="7" value="' + l.v + '"><span class="lapiz">' + lapiz + '</span></label>' +
+          '<div class="seg"><button data-p="S" class="' + (l.p === 'S' ? 'on' : '') + '">Semanal</button>' +
+          '<button data-p="M" class="' + (l.p === 'M' ? 'on' : '') + '">Mensual</button></div>' +
+        '</div></div>';
+    }).join('');
+  }
+  pintarLimites();
+
+  tarjetas.addEventListener('input', function (e) {
+    var t = e.target; if (t.tagName !== 'INPUT') return;
+    t.value = t.value.replace(/[^0-9.]/g, '');
+    limites[+t.closest('.tarjeta').dataset.i].v = t.value;
+  });
+  tarjetas.addEventListener('click', function (e) {
+    var b = e.target.closest('.seg button'); if (!b) return;
+    var tj = b.closest('.tarjeta');
+    limites[+tj.dataset.i].p = b.dataset.p;
+    tj.querySelectorAll('.seg button').forEach(function (x) { x.classList.toggle('on', x === b); });
+  });
+
+  var enPantalla = 1;
+  function irA(n) {
+    enPantalla = n;
+    pagina2.classList.toggle('on', n === 2);
+    pagina3.classList.toggle('on', n === 3);
+    if (n === 4) pintarMisLimites();
+    pagina4.classList.toggle('on', n === 4 || n === 5 || (n === 2 && origen2 === 4));
+    pagina5.classList.toggle('on', n === 5);
+    if (n === 6) pintarLecciones();
+    pagina6.classList.toggle('on', n === 6);
+    if (n === 7) pintarMetas();
+    pagina7.classList.toggle('on', n === 7);
+    if (n === 8) pintarMovimientos();
+    pagina8.classList.toggle('on', n === 8);
+    pagina9.classList.toggle('on', n === 9);
+    pagina10.classList.toggle('on', n === 10);
+    pagina11.classList.toggle('on', n === 11);
+    lanzador.classList.toggle('oculto', n !== 0);
+  }
+  document.getElementById('btnAtras').addEventListener('click', function () { irA(origen2); });
+  document.getElementById('btnGuardar').addEventListener('click', function () {
+    irA(origen2); toast('Límites guardados');
+  });
+  document.getElementById('btnSugeridos').addEventListener('click', function () {
+    limites = JSON.parse(JSON.stringify(sugeridos)); pintarLimites();
+    irA(origen2); toast('Valores sugeridos aplicados');
+  });
+
+  /* ---- Pantalla 3: nuevo gasto ---- */
+  var pagina3 = document.getElementById('pagina3');
+  pagina3.insertBefore(document.querySelector('#vista .barra-estado').cloneNode(true), pagina3.firstChild);
+
+  var categorias = [
+    { n: 'Comida', ico: '🍔' }, { n: 'Gastos hormiga', ico: '☕' },
+    { n: 'Transporte', ico: '🚌' }, { n: 'Ocio', ico: '🎬' }
+  ];
+  var catSel = 0, textoMonto = '';
+  var chips = document.getElementById('chips');
+  var p3Monto = document.getElementById('p3Monto');
+  var p3Desc = document.getElementById('p3Desc');
+
+  function pintarChips() {
+    chips.innerHTML = categorias.map(function (c, i) {
+      return '<button class="chip' + (i === catSel ? ' on' : '') + '" data-i="' + i + '">' + c.n + ' ' + c.ico + '</button>';
+    }).join('');
+  }
+  function pintarMonto() {
+    p3Monto.textContent = 'S/ ' + (textoMonto || '0');
+    p3Monto.style.fontSize = (textoMonto.length > 6 ? 44 : textoMonto.length > 4 ? 52 : 60) + 'px';
+  }
+  function abrirNuevoGasto() {
+    catSel = 0; textoMonto = ''; p3Desc.value = '';
+    pintarChips(); pintarMonto();
+    chips.scrollLeft = 0;
+    irA(3);
+  }
+
+  /* categorías: tocar para elegir, arrastrar para desplazar */
+  var arrastre = null, movio = false;
+  chips.addEventListener('pointerdown', function (e) { arrastre = { x: e.clientX, s: chips.scrollLeft }; movio = false; });
+  chips.addEventListener('pointermove', function (e) {
+    if (!arrastre) return;
+    var d = e.clientX - arrastre.x;
+    if (Math.abs(d) > 5) movio = true;
+    if (movio) chips.scrollLeft = arrastre.s - d / (pantalla.clientWidth / 402);
+  });
+  chips.addEventListener('pointerup', function () { arrastre = null; });
+  chips.addEventListener('pointerleave', function () { arrastre = null; });
+  chips.addEventListener('click', function (e) {
+    var b = e.target.closest('.chip');
+    if (!b || movio) return;
+    catSel = +b.dataset.i;
+    chips.querySelectorAll('.chip').forEach(function (x) { x.classList.toggle('on', x === b); });
+  });
+
+  /* teclado numérico */
+  var teclas = ['1','2','3','4','5','6','7','8','9','.','0','borrar'];
+  var teclado = document.getElementById('teclado');
+  teclado.innerHTML = teclas.map(function (t) {
+    return t === 'borrar'
+      ? '<button data-t="borrar" aria-label="Borrar"><svg width="22" height="22" viewBox="0 0 22 22" fill="none" stroke="#1E2340" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M7.5 5h10a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2h-10L2.5 11z"/><path d="M11.5 8.5l4 4M15.5 8.5l-4 4"/></svg></button>'
+      : '<button data-t="' + t + '">' + t + '</button>';
+  }).join('');
+  teclado.addEventListener('click', function (e) {
+    var b = e.target.closest('button'); if (!b) return;
+    var t = b.dataset.t;
+    if (t === 'borrar') textoMonto = textoMonto.slice(0, -1);
+    else if (t === '.') { if (textoMonto.indexOf('.') < 0) textoMonto = (textoMonto || '0') + '.'; }
+    else {
+      if (textoMonto.length >= 8) return;
+      var dec = textoMonto.split('.')[1];
+      if (dec !== undefined && dec.length >= 2) return;
+      textoMonto = (textoMonto === '0' ? '' : textoMonto) + t;
+    }
+    pintarMonto();
+  });
+
+  document.getElementById('btnVolver3').addEventListener('click', function () { irA(1); });
+  document.getElementById('btnGuardarGasto').addEventListener('click', function () {
+    var m = parseFloat(textoMonto);
+    if (!m) { toast('Ingresa un monto'); return; }
+    var c = categorias[catSel];
+    var g = { d: p3Desc.value.trim() || c.n, c: c.n, m: m };
+    historial.push(g);
+    movimientos.unshift({ tipo: 'egreso', d: g.d, c: g.c, m: m, f: fechaCorta() });
+    gastos.unshift(g);
+    gastos = gastos.slice(0, 5);
+    totalGastos += m;
+    mostrarMonto(m, 'gasto');
+    pintarLista();
+    actualizarAnillo();
+    irA(1);
+    toast('Gasto guardado');
+  });
+
+  /* ---- Pantalla 4: mis límites ---- */
+  var pagina4 = document.getElementById('pagina4');
+  pagina4.insertBefore(document.querySelector('#vista .barra-estado').cloneNode(true), pagina4.firstChild);
+
+  var origen2 = 1;          // desde dónde se abrió "Crear límite" (1 = Inicio, 4 = Mis límites)
+  var historial = [];       // gastos guardados en esta sesión
+  var periodo4 = 'S';
+  // la demo inicia en cero: solo cuentan los gastos que se guarden
+  var gastoBase = {};
+  var COLOR = { verde: '#10B981', naranja: '#F59E0B', rojo: '#EF4444' };
+  var p4Lista = document.getElementById('p4Lista');
+  var iconoLapiz = '<svg width="18" height="18" viewBox="0 0 16 16" fill="none" stroke="#8A94A6" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M10.5 3l2.5 2.5L5.5 13H3v-2.5L10.5 3z"/></svg>';
+  var iconoCampana = '<svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="#6366F1" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 11V7a4 4 0 0 1 8 0v4l1 1.5H3z"/><path d="M6.5 14a1.6 1.6 0 0 0 3 0"/></svg>';
+  var iconoFlecha = '<svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="#6366F1" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8h10M9 4l4 4-4 4"/></svg>';
+
+  function fmt(n) { return Number.isInteger(n) ? String(n) : n.toFixed(2); }
+  function gastadoEn(cat) {
+    var t = gastoBase[cat] || 0;
+    historial.forEach(function (g) { if (g.c === cat) t += g.m; });
+    return t;
+  }
+
+  function pintarMisLimites() {
+    var items = [];
+    limites.forEach(function (l, i) {
+      if (l.p !== periodo4) return;
+      var lim = parseFloat(l.v) || 0, gas = gastadoEn(l.n);
+      items.push({ i: i, l: l, lim: lim, gas: gas, r: lim > 0 ? gas / lim : 0 });
+    });
+    items.sort(function (a, b) { return b.r - a.r; });  // los más cerca del límite primero
+
+    if (!items.length) {
+      p4Lista.innerHTML = '<div class="p4-vacio">No tienes límites ' + (periodo4 === 'S' ? 'semanales' : 'mensuales') + '.<br>Toca el lápiz de otro límite para cambiar su periodo.</div>';
+      return;
+    }
+    p4Lista.innerHTML = items.map(function (it) {
+      var estado = it.r >= 0.9 ? 'rojo' : it.r >= 0.5 ? 'naranja' : 'verde';
+      var c = COLOR[estado];
+      if (estado === 'rojo') registrarLeccion(it.l.n);
+      return '<div class="p4-card' + (estado === 'rojo' ? ' alerta' : '') + '">' +
+        '<div class="p4-fila"><span class="t-ico">' + it.l.ico + '</span><span class="p4-nombre">' + it.l.n + '</span>' +
+          '<span class="p4-montos"><b style="color:' + c + '">S/ ' + fmt(it.gas) + '</b>de S/ ' + fmt(it.lim) + '</span>' +
+          '<button class="p4-lapiz" data-i="' + it.i + '" aria-label="Editar límite">' + iconoLapiz + '</button></div>' +
+        '<div class="p4-barra"><i style="width:' + Math.min(it.r, 1) * 100 + '%;background:' + c + '"></i></div>' +
+        (estado === 'rojo' ? '<button class="p4-aviso" data-leccion="' + it.l.n + '">' + iconoCampana + 'Lección disponible' + iconoFlecha + '</button>' : '') +
+        '</div>';
+    }).join('');
+  }
+
+  document.getElementById('p4Sw').addEventListener('click', function (e) {
+    var b = e.target.closest('button'); if (!b) return;
+    periodo4 = b.dataset.p;
+    this.querySelectorAll('button').forEach(function (x) { x.classList.toggle('on', x === b); });
+    pintarMisLimites();
+  });
+  p4Lista.addEventListener('click', function (e) {
+    var lap = e.target.closest('.p4-lapiz');
+    if (lap) { origen2 = 4; irA(2); return; }            // editar → Crear límite
+    var lec = e.target.closest('.p4-aviso');
+    if (lec) abrirLeccion(lec.dataset.leccion);
+  });
+
+  /* Menú inferior: una copia en Mis límites y navegación en ambas pantallas */
+  var navCopia = document.querySelector('#vista .nav').cloneNode(true);
+  navCopia.querySelectorAll('button').forEach(function (b) {
+    b.classList.toggle('activo', b.dataset.destino === 'Mis limites');
+  });
+  pagina4.appendChild(navCopia);
+  var nav6 = document.querySelector('#vista .nav').cloneNode(true);
+  nav6.querySelectorAll('button').forEach(function (b) {
+    b.classList.toggle('activo', b.dataset.destino === 'Lecciones');
+  });
+  document.getElementById('pagina6').appendChild(nav6);
+  var nav7 = document.querySelector('#vista .nav').cloneNode(true);
+  nav7.querySelectorAll('button').forEach(function (b) {
+    b.classList.toggle('activo', b.dataset.destino === 'Metas');
+  });
+  document.getElementById('pagina7').appendChild(nav7);
+  var nav8 = document.querySelector('#vista .nav').cloneNode(true);
+  nav8.querySelectorAll('button').forEach(function (b) {
+    b.classList.toggle('activo', b.dataset.destino === 'Gastos');
+  });
+  document.getElementById('pagina8').appendChild(nav8);
+  document.querySelectorAll('.nav button').forEach(function (b) {
+    b.addEventListener('click', function () {
+      var d = b.dataset.destino;
+      if (d === 'Gastos') irA(1);
+      else if (d === 'Mis limites') irA(4);
+      else if (d === 'Metas') irA(7);
+      else irA(6);
+    });
+  });
+
+  /* ---- Pantalla 5: lección ---- */
+  var pagina5 = document.getElementById('pagina5');
+  pagina5.insertBefore(document.querySelector('#vista .barra-estado').cloneNode(true), pagina5.firstChild);
+
+  var lecciones = {
+    'Gastos hormiga': { titulo: 'Notamos algo en tus gastos hormiga', tema: 'cafés y snacks',
+      consejo: 'Un gasto de S/ 5 diarios en café equivale a S/ 150 al mes. Reducirlo a 3 veces por semana te ahorraría S/ 60.',
+      meta: 'Establecer meta: máximo 3 cafés esta semana' },
+    'Comida': { titulo: 'Notamos algo en tus gastos de comida', tema: 'comidas',
+      consejo: 'Llevar almuerzo de casa 3 días a la semana puede ahorrarte hasta S/ 40 cada semana.',
+      meta: 'Establecer meta: llevar almuerzo 3 días esta semana' },
+    'Transporte': { titulo: 'Notamos algo en tu transporte', tema: 'pasajes',
+      consejo: 'Tomar un taxi de aplicativo de S/ 15 tres veces por semana suma S/ 180 al mes. Si sales 15 minutos antes y usas transporte público (S/ 2.50) en esos días, tu gasto baja a S/ 30, ahorrándote S/ 150 mensuales.',
+      meta: 'Establecer meta: transporte público 3 veces esta semana' },
+    'Ocio': { titulo: 'Notamos algo en tus gastos de ocio', tema: 'salidas y entretenimiento',
+      consejo: 'Alternar una salida de pago con un plan gratuito cada semana puede ahorrarte hasta S/ 60 al mes.',
+      meta: 'Establecer meta: un plan gratis por semana' }
+  };
+  function abrirLeccion(cat) {
+    var L = lecciones[cat]; if (!L) return;
+    var lim = 0;
+    limites.forEach(function (l) { if (l.n === cat) lim = parseFloat(l.v) || 0; });
+    var gas = gastadoEn(cat);
+    var cuando = periodo4 === 'S' ? 'Esta semana' : 'Este mes';
+    var resto = gas > lim ? ', S/ ' + fmt(gas - lim) + ' más de tu límite.'
+              : gas === lim ? ', justo en tu límite.'
+              : ', a S/ ' + fmt(lim - gas) + ' de tu límite.';
+    document.getElementById('p5Titulo').textContent = L.titulo;
+    document.getElementById('p5Sub').textContent = cuando + ' gastaste S/ ' + fmt(gas) + ' en ' + L.tema + resto;
+    document.getElementById('p5Consejo').textContent = L.consejo;
+    document.getElementById('p5Meta').textContent = periodo4 === 'S' ? L.meta : L.meta.replace('esta semana', 'este mes');
+    irA(5);
+  }
+  document.getElementById('btnAtras5').addEventListener('click', function () { irA(4); });
+  document.getElementById('btnLuego').addEventListener('click', function () { irA(4); });
+  /* ---- Pantalla 7: metas (chanchitos) ---- */
+  var pagina7 = document.getElementById('pagina7');
+  pagina7.insertBefore(document.querySelector('#vista .barra-estado').cloneNode(true), pagina7.firstChild);
+
+  var metas = [
+    { n: 'Laptop para clases', a: 450, o: 1500 },
+    { n: 'Libros del ciclo',   a: 180, o: 300 },
+    { n: 'Viaje con amigos',   a: 60,  o: 400 }
+  ];
+  var fondosCerdo = ['#DCDDFB', '#D0E7F6', '#E6DFFA'];
+  var valMoneda = 20;
+  function num(n) { return n.toLocaleString('en-US', { maximumFractionDigits: 2 }); }
+  function num2(n) { return n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
+  function cerdo(fondo) {
+    return '<svg width="70" height="56" viewBox="0 0 70 56" fill="none" stroke="#6366F1" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round">' +
+      '<path d="M41 14L48 5l4 13z" fill="' + fondo + '"/>' +
+      '<ellipse cx="32" cy="30" rx="24" ry="17" fill="' + fondo + '"/>' +
+      '<rect x="53" y="25" width="12" height="12" rx="4" fill="' + fondo + '"/>' +
+      '<path d="M17 44v9h8v-6M40 46v7h8v-9" fill="' + fondo + '"/>' +
+      '<path d="M9 27c-4-1-6-5-2-8M26 15h12"/><circle cx="46" cy="26" r="1.3" fill="#6366F1" stroke="none"/></svg>';
+  }
+  function pintarMetas() {
+    var total = 0;
+    metas.forEach(function (m) { total += m.a; });
+    document.getElementById('mTotal').textContent = 'S/ ' + num2(total);
+    document.getElementById('mCuenta').textContent = metas.length + (metas.length === 1 ? ' meta' : ' metas');
+    document.getElementById('mLista').innerHTML = metas.map(function (m, i) {
+      var p = Math.min(Math.round(m.a / m.o * 100), 100);
+      var falta = m.o - m.a;
+      return '<div class="meta-card" data-i="' + i + '"><div class="m-cerdo">' + cerdo(fondosCerdo[i % 3]) + '<em>Suelta aquí</em></div>' +
+        '<div class="m-info"><div class="m-nombre">' + m.n + '</div>' +
+        '<div class="m-cifras"><b>S/ ' + num(m.a) + '</b> de S/ ' + num(m.o) + '</div>' +
+        '<div class="m-barra"><i style="width:' + p + '%"></i></div>' +
+        '<div class="m-pie"><b>' + p + '%</b><span>' + (falta > 0 ? 'Faltan S/ ' + num(falta) : '¡Meta cumplida!') + '</span></div></div></div>';
+    }).join('');
+  }
+
+  /* moneda: valor */
+  var mMoneda = document.getElementById('mMoneda');
+  var mFila = document.getElementById('mFila');
+  function pintarMoneda() {
+    var t = num(valMoneda);
+    mMoneda.querySelector('span').textContent = t;
+    mMoneda.querySelector('span').style.fontSize = (t.length > 5 ? 15 : t.length > 3 ? 19 : 24) + 'px';
+  }
+  mFila.querySelectorAll('.q').forEach(function (b) {
+    b.addEventListener('click', function () {
+      valMoneda = +b.dataset.v; pintarMoneda();
+      mFila.querySelectorAll('.q').forEach(function (x) { x.classList.toggle('on', x === b); });
+    });
+  });
+  /* hoja con teclado numérico: sirve para "Nuevo chanchito" y para el valor de la moneda */
+  var mSheet = document.getElementById('mSheet');
+  var modoSheet = null, textoSheet = '';
+  var sMonto = document.getElementById('sMonto');
+  function pintarSheetMonto() { sMonto.textContent = 'S/ ' + (textoSheet || '0'); }
+  function abrirSheet(modo) {
+    modoSheet = modo; textoSheet = '';
+    var nuevo = modo === 'chanchito';
+    document.getElementById('sTitulo').textContent = nuevo ? 'Nuevo chanchito' : 'Valor de la moneda';
+    document.getElementById('sEtiqueta').textContent = nuevo ? 'Meta de ahorro' : 'Monto de la moneda';
+    document.getElementById('sNombre').style.display = nuevo ? '' : 'none';
+    document.getElementById('btnSheetOk').textContent = nuevo ? 'Crear chanchito' : 'Listo';
+    if (nuevo) document.getElementById('nNombre').value = '';
+    pintarSheetMonto();
+    mSheet.classList.add('on');
+  }
+  var mTeclado = document.getElementById('mTeclado');
+  mTeclado.innerHTML = ['1','2','3','4','5','6','7','8','9','.','0','borrar'].map(function (t) {
+    return t === 'borrar'
+      ? '<button data-t="borrar" aria-label="Borrar"><svg width="22" height="22" viewBox="0 0 22 22" fill="none" stroke="#1E2340" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M7.5 5h10a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2h-10L2.5 11z"/><path d="M11.5 8.5l4 4M15.5 8.5l-4 4"/></svg></button>'
+      : '<button data-t="' + t + '">' + t + '</button>';
+  }).join('');
+  mTeclado.addEventListener('click', function (e) {
+    var b = e.target.closest('button'); if (!b) return;
+    var t = b.dataset.t;
+    if (t === 'borrar') textoSheet = textoSheet.slice(0, -1);
+    else if (t === '.') { if (textoSheet.indexOf('.') < 0) textoSheet = (textoSheet || '0') + '.'; }
+    else {
+      if (textoSheet.length >= 7) return;
+      var dec = textoSheet.split('.')[1];
+      if (dec !== undefined && dec.length >= 2) return;
+      textoSheet = (textoSheet === '0' ? '' : textoSheet) + t;
+    }
+    pintarSheetMonto();
+  });
+  document.getElementById('btnLapizMoneda').addEventListener('click', function () { abrirSheet('moneda'); });
+  document.getElementById('btnNuevo').addEventListener('click', function () { abrirSheet('chanchito'); });
+  document.getElementById('btnSheetCancel').addEventListener('click', function () { mSheet.classList.remove('on'); });
+  document.getElementById('btnSheetOk').addEventListener('click', function () {
+    var v = parseFloat(textoSheet);
+    if (modoSheet === 'chanchito') {
+      var n = document.getElementById('nNombre').value.trim();
+      if (!n) { toast('Ponle un nombre al chanchito'); return; }
+      if (!(v > 0)) { toast('Ingresa la meta de ahorro'); return; }
+      metas.push({ n: n, a: 0, o: v });
+      mSheet.classList.remove('on');
+      pintarMetas();
+      var l = document.getElementById('mLista'); l.scrollTop = l.scrollHeight;
+      toast('Chanchito creado');
+    } else {
+      if (!(v > 0)) { toast('Ingresa un valor mayor a 0'); return; }
+      valMoneda = v; pintarMoneda();
+      mFila.querySelectorAll('.q').forEach(function (x) { x.classList.toggle('on', +x.dataset.v === v); });
+      mSheet.classList.remove('on');
+    }
+  });
+
+  /* moneda: arrastrar hasta un chanchito */
+  var arr = null, mTrazaP = document.getElementById('mTrazaP');
+  function tarjetaBajo(x, y) {
+    var hallada = null;
+    document.querySelectorAll('#mLista .meta-card').forEach(function (c) {
+      var r = c.getBoundingClientRect();
+      if (x >= r.left && x <= r.right && y >= r.top && y <= r.bottom) hallada = c;
+    });
+    return hallada;
+  }
+  function marcar(card) {
+    document.querySelectorAll('#mLista .meta-card').forEach(function (c) { c.classList.toggle('objetivo', c === card); });
+  }
+  mMoneda.addEventListener('pointerdown', function (e) {
+    mMoneda.setPointerCapture(e.pointerId);
+    var s = pantalla.clientWidth / 402;
+    var cr = mMoneda.getBoundingClientRect(), pr = pagina7.getBoundingClientRect();
+    arr = { x: e.clientX, y: e.clientY, s: s, cx: (cr.left + cr.width / 2 - pr.left) / s, cy: (cr.top + cr.height / 2 - pr.top) / s };
+    mMoneda.style.transition = 'none';
+    mMoneda.classList.add('arrastra');
+  });
+  mMoneda.addEventListener('pointermove', function (e) {
+    if (!arr) return;
+    var dx = (e.clientX - arr.x) / arr.s, dy = (e.clientY - arr.y) / arr.s;
+    mMoneda.style.transform = 'translate(' + dx + 'px,' + dy + 'px) scale(1.08)';
+    mTrazaP.setAttribute('d', 'M ' + arr.cx + ' ' + arr.cy + ' L ' + (arr.cx + dx) + ' ' + (arr.cy + dy));
+    marcar(tarjetaBajo(e.clientX, e.clientY));
+  });
+  function soltarMoneda(e) {
+    if (!arr) return;
+    var card = tarjetaBajo(e.clientX, e.clientY);
+    arr = null;
+    mMoneda.classList.remove('arrastra');
+    mMoneda.style.transition = 'transform .28s';
+    mMoneda.style.transform = '';
+    mTrazaP.setAttribute('d', '');
+    marcar(null);
+    if (card) depositar(+card.dataset.i);
+  }
+  mMoneda.addEventListener('pointerup', soltarMoneda);
+  mMoneda.addEventListener('pointercancel', soltarMoneda);
+
+  function depositar(i) {
+    var m = metas[i], libre = m.o - m.a;
+    if (libre <= 0) { toast('Este chanchito ya está lleno'); return; }
+    var suma = Math.min(valMoneda, libre);
+    m.a += suma;
+    pintarMetas();
+    toast('S/ ' + num(suma) + ' para ' + m.n + (m.a >= m.o ? ' · ¡Meta cumplida!' : ''));
+  }
+
+
+  /* ---- Pantalla 8: movimientos ---- */
+  var pagina8 = document.getElementById('pagina8');
+  pagina8.insertBefore(document.querySelector('#vista .barra-estado').cloneNode(true), pagina8.firstChild);
+
+  var movimientos = [];      // el más reciente primero; la demo inicia en cero
+  var filtroMv = 'T';
+  var MESES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+  function dosD(n) { return (n < 10 ? '0' : '') + n; }
+  function fechaCorta() { var d = new Date(); return dosD(d.getDate()) + ' ' + MESES[d.getMonth()].slice(0, 3).toLowerCase(); }
+  function esc(t) { return String(t).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
+  function norm(t) { return String(t).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, ''); }
+
+  function pintarMovimientos() {
+    var hoy = new Date(), mes = MESES[hoy.getMonth()], anio = hoy.getFullYear();
+    var ing = 0, egr = 0;
+    movimientos.forEach(function (m) { if (m.tipo === 'ingreso') ing += m.m; else egr += m.m; });
+    document.getElementById('mvMes').textContent = mes + ' ' + anio;
+    document.getElementById('mvSaldo').textContent = 'S/ ' + num2(ing - egr);
+    document.getElementById('mvIng').textContent = '+ S/ ' + num2(ing);
+    document.getElementById('mvEgr').textContent = '− S/ ' + num2(egr);
+    document.getElementById('mvCabMes').textContent = mes + ' · ' + anio;
+    document.getElementById('mvInicial').textContent = 'Saldo inicial · 01 ' + MESES[hoy.getMonth()].slice(0, 3).toLowerCase();
+
+    var q = norm(document.getElementById('mvBuscar').value.trim());
+    var vistos = movimientos.filter(function (m) {
+      if (filtroMv === 'I' && m.tipo !== 'ingreso') return false;
+      if (filtroMv === 'E' && m.tipo !== 'egreso') return false;
+      return !q || norm(m.d).indexOf(q) >= 0 || norm(m.c).indexOf(q) >= 0;
+    });
+    document.getElementById('mvCuenta').textContent = vistos.length + (vistos.length === 1 ? ' apunte' : ' apuntes');
+    document.getElementById('mvFilas').innerHTML = vistos.length
+      ? vistos.map(function (m) {
+          var i = m.tipo === 'ingreso';
+          return '<div class="mv-fila"><div><div class="t">' + esc(m.d) + '</div><div class="s">' + esc(m.c) + ' · ' + m.f + '</div></div>' +
+            '<div class="r ' + (i ? 'ing' : 'egr') + '"><b>' + (i ? '+' : '−') + ' S/ ' + num2(m.m) + '</b><small>' + (i ? 'Ingreso' : 'Egreso') + '</small></div></div>';
+        }).join('')
+      : '<div class="mv-vacio">' + (movimientos.length ? 'No hay movimientos que coincidan.' : 'Aún no tienes movimientos.<br>Registra un gasto o un ingreso desde Gastos.') + '</div>';
+  }
+
+  document.getElementById('btnMov').addEventListener('click', function () { irA(8); });
+  document.getElementById('btnTutorial').addEventListener('click', function () { abrirTutorial(); });
+  document.getElementById('btnAtras8').addEventListener('click', function () { irA(1); });
+  document.getElementById('btnFiltro').addEventListener('click', function () { toast('Aqui iran: Filtros'); });
+  document.getElementById('mvBuscar').addEventListener('input', pintarMovimientos);
+  document.getElementById('mvSw').addEventListener('click', function (e) {
+    var b = e.target.closest('button'); if (!b) return;
+    filtroMv = b.dataset.f;
+    this.querySelectorAll('button').forEach(function (x) { x.classList.toggle('on', x === b); });
+    pintarMovimientos();
+  });
+
+  /* ---- Pantalla 9: nuevo ingreso ---- */
+  var pagina9 = document.getElementById('pagina9');
+  pagina9.insertBefore(document.querySelector('#vista .barra-estado').cloneNode(true), pagina9.firstChild);
+
+  var fuentes = [
+    { n: 'Apoyo familiar', ico: '🏠' }, { n: 'Trabajo', ico: '💼' },
+    { n: 'Beca', ico: '🎓' },           { n: 'Otro', ico: '➕' }
+  ];
+  var fuenteSel = 0, textoIng = '';
+  var p9Chips = document.getElementById('p9Chips');
+  var p9Monto = document.getElementById('p9Monto');
+  var p9Desc = document.getElementById('p9Desc');
+
+  function pintarFuentes() {
+    p9Chips.innerHTML = fuentes.map(function (f, i) {
+      return '<button class="chip' + (i === fuenteSel ? ' on' : '') + '" data-i="' + i + '">' + f.n + ' ' + f.ico + '</button>';
+    }).join('');
+  }
+  function pintarMontoIng() {
+    p9Monto.textContent = 'S/ ' + (textoIng || '0');
+    p9Monto.style.fontSize = (textoIng.length > 6 ? 44 : textoIng.length > 4 ? 52 : 60) + 'px';
+  }
+  function abrirNuevoIngreso() {
+    fuenteSel = 0; textoIng = ''; p9Desc.value = '';
+    pintarFuentes(); pintarMontoIng();
+    irA(9);
+  }
+  p9Chips.addEventListener('click', function (e) {
+    var b = e.target.closest('.chip'); if (!b) return;
+    fuenteSel = +b.dataset.i;
+    p9Chips.querySelectorAll('.chip').forEach(function (x) { x.classList.toggle('on', x === b); });
+  });
+
+  var p9Teclado = document.getElementById('p9Teclado');
+  p9Teclado.innerHTML = document.getElementById('teclado').innerHTML;
+  p9Teclado.addEventListener('click', function (e) {
+    var b = e.target.closest('button'); if (!b) return;
+    var t = b.dataset.t;
+    if (t === 'borrar') textoIng = textoIng.slice(0, -1);
+    else if (t === '.') { if (textoIng.indexOf('.') < 0) textoIng = (textoIng || '0') + '.'; }
+    else {
+      if (textoIng.length >= 8) return;
+      var dec = textoIng.split('.')[1];
+      if (dec !== undefined && dec.length >= 2) return;
+      textoIng = (textoIng === '0' ? '' : textoIng) + t;
+    }
+    pintarMontoIng();
+  });
+
+  document.getElementById('btnVolver9').addEventListener('click', function () { irA(1); });
+  document.getElementById('btnGuardarIngreso').addEventListener('click', function () {
+    var m = parseFloat(textoIng);
+    if (!m) { toast('Ingresa un monto'); return; }
+    var f = fuentes[fuenteSel];
+    movimientos.unshift({ tipo: 'ingreso', d: p9Desc.value.trim() || f.n, c: f.n, m: m, f: fechaCorta() });
+    totalIngresos += m;
+    mostrarMonto(m, 'ingreso');
+    actualizarAnillo();
+    irA(1);
+    toast('Ingreso guardado');
+  });
+
+  /* ---- Menú de aplicaciones del celular ---- */
+  var lanzador = document.getElementById('lanzador');
+  lanzador.insertBefore(document.querySelector('#vista .barra-estado').cloneNode(true), lanzador.firstChild);
+  var DIAS = ['domingo','lunes','martes','miércoles','jueves','viernes','sábado'];
+  (function () {
+    var h = new Date();
+    document.getElementById('lzFecha').textContent = DIAS[h.getDay()] + ', ' + h.getDate() + ' de ' + MESES[h.getMonth()].toLowerCase();
+  })();
+  var iconoFinance = '<svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="6" width="18" height="13" rx="3"/><path d="M3 9.500V8a2 2 0 0 1 2-2h11"/><circle cx="16.500" cy="12.500" r="1.200" fill="#fff"/></svg>';
+  var appsMenu = [
+    ['Mensajes', '💬', '#34C759'], ['Cámara', '📷', '#6B7280'], ['Fotos', '🖼️', '#F59E0B'], ['Mapas', '🗺️', '#10B981'],
+    ['Reloj', '⏰', '#1F2937'], ['FinanceIA', null, 'linear-gradient(145deg,#7C7BF5,#4F46E5)'], ['Notas', '📝', '#FBBF24'], ['Música', '🎵', '#EF4444'],
+    ['Clima', '⛅', '#38BDF8'], ['Calendario', '📅', '#F43F5E'], ['Ajustes', '⚙️', '#9CA3AF'], ['Calculadora', '🧮', '#F97316']
+  ];
+  var dockMenu = [['Teléfono', '📞', '#34C759'], ['Navegador', '🌐', '#3B82F6'], ['Correo', '✉️', '#0EA5E9'], ['Archivos', '📁', '#6366F1']];
+  function htmlApp(a) {
+    return '<button class="lz-app" data-app="' + a[0] + '"><span class="lz-ico" style="background:' + a[2] + '">' + (a[1] || iconoFinance) + '</span>' +
+      (a.dock ? '' : a[0]) + '</button>';
+  }
+  document.getElementById('lzGrid').innerHTML = appsMenu.map(htmlApp).join('');
+  document.getElementById('lzDock').innerHTML = dockMenu.map(function (a) { var x = a.slice(); x.dock = true; return htmlApp(x); }).join('');
+  lanzador.addEventListener('click', function (e) {
+    var b = e.target.closest('.lz-app'); if (!b) return;
+    if (b.dataset.app === 'FinanceIA') abrirLogin(); else toast('Solo FinanceIA está disponible en este prototipo');
+  });
+  document.getElementById('btnCasa').addEventListener('click', function () { if (enPantalla !== 0) irA(0); });
+
+  /* ---- Pantalla 10: login ---- */
+  var pagina10 = document.getElementById('pagina10');
+  pagina10.insertBefore(document.querySelector('#vista .barra-estado').cloneNode(true), pagina10.firstChild);
+  var modoLogin = 'in';
+  function ponerModoLogin(m) {
+    modoLogin = m;
+    var reg = m === 'reg';
+    document.getElementById('lgTitulo').textContent = reg ? '¡Crea tu cuenta!' : '¡Qué bueno verte de nuevo!';
+    document.getElementById('lgSub').textContent = reg ? 'Guarda tu información en la nube y accede desde cualquier lugar.' : 'Tus gastos, tus metas y un poco más de tranquilidad.';
+    document.getElementById('lgConfirmar').style.display = reg ? '' : 'none';
+    document.getElementById('lgOlvido').style.display = reg ? 'none' : '';
+    document.getElementById('lgIngresar').textContent = reg ? 'Crear cuenta' : 'Ingresar';
+    document.getElementById('lgGoogleTxt').textContent = reg ? 'Registrarme con Google' : 'Continuar con Google';
+    document.querySelectorAll('#lgSw button').forEach(function (b) { b.classList.toggle('on', b.dataset.m === m); });
+  }
+  function abrirLogin() {
+    ponerModoLogin('in');
+    ['lgCorreo', 'lgClave', 'lgClave2'].forEach(function (id) { var e = document.getElementById(id); e.value = ''; e.type = id === 'lgCorreo' ? 'email' : 'password'; });
+    irA(10);
+  }
+  document.getElementById('lgSw').addEventListener('click', function (e) {
+    var b = e.target.closest('button'); if (b) ponerModoLogin(b.dataset.m);
+  });
+  document.getElementById('btnOjo').addEventListener('click', function () {
+    var i = document.getElementById('lgClave');
+    i.type = i.type === 'password' ? 'text' : 'password';
+  });
+  document.getElementById('lgOlvido').addEventListener('click', function () { toast('Aqui ira: Recuperar contraseña'); });
+  function entrarConCuenta() {
+    if (modoLogin === 'reg') { origen2 = 1; irA(2); }   // cuenta nueva: siguiente paso, definir límites
+    else irA(1);
+  }
+  document.getElementById('lgIngresar').addEventListener('click', entrarConCuenta);
+  document.getElementById('lgGoogle').addEventListener('click', entrarConCuenta);
+  document.getElementById('lgLocal').addEventListener('click', function () {
+    irA(1); toast('Modo local: tus datos viven solo en este celular');
+  });
+  document.getElementById('btnCerrar10').addEventListener('click', function () { irA(0); });
+  document.querySelector('#vista .cerrar').addEventListener('click', abrirLogin);   // X de Inicio: volver al login
+
+  /* ---- Pantallas 11-13: tutorial (se pasa como las hojas de un libro) ---- */
+  var pagina11 = document.getElementById('pagina11');
+  pagina11.insertBefore(document.querySelector('#vista .barra-estado').cloneNode(true), pagina11.firstChild);
+  var tuIdx = 0;
+  var tuPista = document.getElementById('tuPista'), tuVista = document.getElementById('tuVista');
+  var tuBtn = document.getElementById('tuBtn'), tuPie = document.getElementById('tuPie');
+  var tuTextosBtn = ['Siguiente', 'Siguiente', 'Comenzar'];
+  var tuTextosPie = ['Bienvenida · 1 de 3', 'Bienvenida · 2 de 3', 'Siguiente: iniciar sesión o registrarme'];
+  function tuIr(i, animar) {
+    tuIdx = i;
+    tuPista.style.transition = animar === false ? 'none' : '';
+    tuPista.style.transform = 'translateX(' + (-i * 402) + 'px)';
+    document.querySelectorAll('#tuPuntos i').forEach(function (p, k) { p.classList.toggle('on', k === i); });
+    tuBtn.textContent = tuTextosBtn[i];
+    tuPie.textContent = tuTextosPie[i];
+  }
+  function abrirTutorial() { tuIr(0, false); irA(11); }
+  tuBtn.addEventListener('click', function () { if (tuIdx < 2) tuIr(tuIdx + 1); else irA(1); });
+  document.getElementById('tuOmitir').addEventListener('click', function () { irA(1); });
+
+  var tuArr = null;
+  tuVista.addEventListener('pointerdown', function (e) { tuArr = { x: e.clientX, mov: false }; });
+  tuVista.addEventListener('pointermove', function (e) {
+    if (!tuArr) return;
+    var s = pantalla.clientWidth / 402, dx = (e.clientX - tuArr.x) / s;
+    if (!tuArr.mov && Math.abs(dx) > 6) { tuArr.mov = true; tuVista.setPointerCapture(e.pointerId); tuVista.classList.add('arrastra'); }
+    if (!tuArr.mov) return;
+    if ((tuIdx === 0 && dx > 0) || (tuIdx === 2 && dx < 0)) dx *= 0.3;   // tope en la primera y la última hoja
+    tuPista.style.transition = 'none';
+    tuPista.style.transform = 'translateX(' + (-tuIdx * 402 + dx) + 'px)';
+    tuArr.dx = dx;
+  });
+  function tuSoltar() {
+    if (!tuArr) return;
+    var a = tuArr; tuArr = null;
+    tuVista.classList.remove('arrastra');
+    if (!a.mov) return;
+    var dx = a.dx || 0;
+    if (dx < -60 && tuIdx < 2) tuIr(tuIdx + 1);
+    else if (dx > 60 && tuIdx > 0) tuIr(tuIdx - 1);
+    else tuIr(tuIdx);
+  }
+  tuVista.addEventListener('pointerup', tuSoltar);
+  tuVista.addEventListener('pointercancel', tuSoltar);
+
+  /* ---- Desplazar listas arrastrando (mouse o dedo), con un poco de inercia ---- */
+  function arrastrarScroll(el) {
+    var st = null, movio = false, raf = 0;
+    el.addEventListener('pointerdown', function (e) {
+      cancelAnimationFrame(raf);
+      st = { y: e.clientY, top: el.scrollTop, ult: e.clientY, t: e.timeStamp, v: 0, id: e.pointerId };
+      movio = false;
+    });
+    el.addEventListener('pointermove', function (e) {
+      if (!st) return;
+      var s = pantalla.clientWidth / 402, dy = e.clientY - st.y;
+      if (!movio && Math.abs(dy) > 6) { movio = true; el.setPointerCapture(st.id); }
+      if (!movio) return;
+      el.scrollTop = st.top - dy / s;
+      var dt = Math.max(e.timeStamp - st.t, 1);
+      st.v = ((st.ult - e.clientY) / s) / dt;
+      st.ult = e.clientY; st.t = e.timeStamp;
+    });
+    function soltar() {
+      if (!st) return;
+      var v = st.v; st = null;
+      if (!movio) return;
+      (function inercia() {
+        if (Math.abs(v) < 0.02) return;
+        el.scrollTop += v * 16; v *= 0.94;
+        raf = requestAnimationFrame(inercia);
+      })();
+    }
+    el.addEventListener('pointerup', soltar);
+    el.addEventListener('pointercancel', soltar);
+    el.addEventListener('click', function (e) {          // un arrastre no cuenta como toque
+      if (movio) { e.stopPropagation(); e.preventDefault(); movio = false; }
+    }, true);
+  }
+  arrastrarScroll(document.getElementById('mLista'));
+  arrastrarScroll(document.getElementById('p6Lista'));
+  arrastrarScroll(document.getElementById('mvFilas'));
+
+  /* ---- Pantalla 6: historial de lecciones ---- */
+  var pagina6 = document.getElementById('pagina6');
+  pagina6.insertBefore(document.querySelector('#vista .barra-estado').cloneNode(true), pagina6.firstChild);
+  var historialLecc = [];   // la demo inicia sin lecciones
+  function registrarLeccion(cat) {
+    if (historialLecc.indexOf(cat) < 0) historialLecc.unshift(cat);
+  }
+  function pintarLecciones() {
+    var cont = document.getElementById('p6Lista');
+    cont.innerHTML = historialLecc.length
+      ? historialLecc.map(function (cat) {
+          return '<div class="p6-card"><b>Leccion</b><span>' + lecciones[cat].consejo + '</span></div>';
+        }).join('')
+      : '<div class="p6-vacio">Aun no tienes lecciones.<br>Aparecen aqui cuando un limite se acerca a su tope.</div>';
+  }
+  document.getElementById('p5Meta').addEventListener('click', function () { toast('Aqui ira: Establecer meta'); });
+
+  /* ---- Datos de ejemplo precargados (para ver el funcionamiento sin ingresar todo) ---- */
+  function fechaHace(n) {
+    var d = new Date(); d.setDate(d.getDate() - n);
+    return dosD(d.getDate()) + ' ' + MESES[d.getMonth()].slice(0, 3).toLowerCase();
+  }
+  var semilla = [   // del más reciente al más antiguo: [días atrás, tipo, concepto, categoría, monto]
+    [0, 'egreso',  'Almuerzo en campus',    'Comida',         18],
+    [0, 'egreso',  'Café entre clases',     'Gastos hormiga', 6.5],
+    [1, 'egreso',  'Snack en kiosco',       'Gastos hormiga', 12],
+    [1, 'egreso',  'Cena con amigos',       'Comida',         25],
+    [2, 'ingreso', 'Depósito de mamá',      'Apoyo familiar', 300],
+    [2, 'egreso',  'Bus a la universidad',  'Transporte',     4],
+    [3, 'egreso',  'Gaseosa y galletas',    'Gastos hormiga', 8],
+    [3, 'egreso',  'Cine con amigos',       'Ocio',           16],
+    [4, 'egreso',  'Menú del día',          'Comida',         32],
+    [4, 'egreso',  'Café en la esquina',    'Gastos hormiga', 6],
+    [5, 'egreso',  'Taxi nocturno',         'Transporte',     20],
+    [6, 'ingreso', 'Tutoría de matemática', 'Trabajo',        200],
+    [6, 'egreso',  'Desayuno en el kiosco', 'Comida',         25],
+    [7, 'ingreso', 'Beca de estudios',      'Beca',           300]
+  ];
+  movimientos = semilla.map(function (r) { return { tipo: r[1], d: r[2], c: r[3], m: r[4], f: fechaHace(r[0]) }; });
+  var egresosSemilla = movimientos.filter(function (m) { return m.tipo === 'egreso'; });
+  historial = egresosSemilla.map(function (m) { return { d: m.d, c: m.c, m: m.m }; });
+  gastos = historial.slice(0, 5);
+  totalGastos = 0; totalIngresos = 0;
+  movimientos.forEach(function (m) { if (m.tipo === 'ingreso') totalIngresos += m.m; else totalGastos += m.m; });
+  pintarLista();
+  mostrarMonto(gastos[0].m, 'gasto');
+  actualizarAnillo();
+  historialLecc = ['Gastos hormiga', 'Transporte'];
+  irA(0);   // la demo arranca en el menú de aplicaciones del celular
+})();
+</script>
+</body>
+</html>
