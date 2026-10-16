@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Prototipo</title>
+<title>Prototipo - Inicio</title>
 <style>
   :root {
     --fondo: #e9ecef;
@@ -22,7 +22,38 @@
     display: flex; flex-direction: column; align-items: center;
     min-height: 100vh; padding: 2rem 1rem;
   }
-  h1 { margin: 0 0 2rem; font-size: 2.4rem; font-weight: 700; letter-spacing: .02em; }
+  h1 { margin: 0 0 1rem; font-size: 2.4rem; font-weight: 700; letter-spacing: .02em; text-align: center; }
+  
+  /* --- ESTILOS DE LOS BOTONES ENLACE --- */
+  .nav-botones {
+    display: flex;
+    gap: 15px;
+    margin-bottom: 2.5rem;
+    flex-wrap: wrap;
+    justify-content: center;
+    z-index: 50;
+  }
+  .nav-botones a {
+    padding: 12px 24px;
+    border-radius: 12px;
+    text-decoration: none;
+    font-size: 15px;
+    font-weight: bold;
+    color: white;
+    transition: transform 0.2s, box-shadow 0.2s;
+  }
+  .nav-botones a.btn-v1 {
+    background-color: #6366F1; /* Violeta */
+    box-shadow: 0 6px 16px rgba(99, 102, 241, 0.3);
+  }
+  .nav-botones a.btn-v2 {
+    background-color: #10B981; /* Verde esmeralda */
+    box-shadow: 0 6px 16px rgba(16, 185, 129, 0.3);
+  }
+  .nav-botones a:active {
+    transform: scale(0.96);
+  }
+  
   main { flex: 1; display: flex; align-items: center; justify-content: center; }
 
   /* ---------- Celular: 7 cm x 15 cm ---------- */
@@ -467,7 +498,14 @@
 </style>
 </head>
 <body>
-  <h1>Prototipo</h1>
+  <h1>FinanceIA - Prototipos</h1>
+  
+  <!-- BOTONES DE NAVEGACIÓN A LAS OTRAS VERSIONES -->
+  <div class="nav-botones">
+    <a href="FinanceIA — Prototipo v1 (original, con errores).html" class="btn-v1">Ver Versión 1 (Original)</a>
+    <a href="FinanceIA — Prototipo v2 (con los 7 arreglos).html" class="btn-v2">Ver Versión 2 (Con arreglos)</a>
+  </div>
+
   <main>
     <div class="celular">
       <div class="pantalla" id="pantalla">
